@@ -36,7 +36,7 @@ fun MainScreen() {
     var selectedImage by remember { mutableStateOf<ImageBitmap?>(null) }
     var layoutRect by remember { mutableStateOf<Rect>(Rect()) }
     val goals = remember { mutableStateListOf<Goal>() }
-    var updated = remember { mutableStateOf(true) }
+    val updated = remember { mutableStateOf(Unit) }
     val undoGoals = remember { mutableStateListOf<Goal>() }
 
     val requester = remember { FocusRequester() }
@@ -52,7 +52,7 @@ fun MainScreen() {
                 println("Ctrl + Shifrt + Z")
                 if (undoGoals.isNotEmpty()) {
                     goals.add(undoGoals.last())
-                    updated.value = true
+                    updated.value = Unit
                     undoGoals.removeAt(undoGoals.size - 1)
                 }
                 return@onKeyEvent true
@@ -65,7 +65,7 @@ fun MainScreen() {
                 if (goals.isNotEmpty()) {
                     undoGoals.add(goals.last())
                     goals.removeAt(goals.size - 1)
-                    updated.value = true
+                    updated.value = Unit
                 }
                 return@onKeyEvent true
             }
@@ -93,7 +93,7 @@ fun MainScreen() {
                 onNewGoal = { goal ->
                     selectedColor = nextColor()
                     goals.add(goal)
-                    updated.value = true
+                    updated.value = Unit
                     requester.requestFocus()
                 },
                 modifier = Modifier.weight(1f)
@@ -118,7 +118,7 @@ fun MainScreen() {
                                     color = Color.Transparent
                                 )
                             )
-                            updated.value = true
+                            updated.value = Unit
                         } else {
                             goals.first().area = layoutRect
                         }
@@ -143,23 +143,38 @@ fun MainScreen() {
                         val goal = goals[i]
                         val onRemoveClick = {
                             goals.removeAt(i)
-                            updated.value = true
+                            updated.value = Unit
                             Unit
                         }
-                        val onPromptChanged = {
+                        val onPromptChanged: (String) -> Unit = { value ->
                             requester.freeFocus()
                         }
                         when (goal.element.type) {
-                            Element.Type.Image -> PromptImageItem(goal, onRemoveClick, canRemove = i != 0)
-                            Element.Type.List -> PromptListItem(goal, onRemoveClick, canRemove = i != 0)
-                            else -> PromptItem(goal, onRemoveClick, canRemove = i != 0)
+                            Element.Type.Image -> PromptImageItem(
+                                goal,
+                                onPromptChanged,
+                                onRemoveClick,
+                                canRemove = i != 0
+                            )
+
+                            Element.Type.List -> PromptListItem(
+                                goal,
+                                onPromptChanged,
+                                onRemoveClick,
+                                canRemove = i != 0
+                            )
+
+                            else -> PromptItem(goal, onPromptChanged, onRemoveClick, canRemove = i != 0)
                         }
                     }
                 }
             }
-            Card {
-                    ResultView(goals, updated)
-            }
+
+                Card {
+                    ResultView(createScreenCode(goals))
+                }
+
+
         }
     }
 

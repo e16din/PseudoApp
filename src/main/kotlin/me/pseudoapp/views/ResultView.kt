@@ -11,16 +11,16 @@ import me.pseudoapp.Goal
 import me.pseudoapp.other.contains
 
 @Composable
-fun ResultView(newGoals: SnapshotStateList<Goal>, updated: MutableState<Boolean>) {
-    val goals = remember { newGoals }
-    println("ResultView")
-    var codeText by remember { mutableStateOf(createScreenCode(goals)) }
+fun ResultView(code: String) {
+    println("ResultView: $code")
+    var codeText by mutableStateOf(code)
+
     TextField(value = codeText, onValueChange = {
         codeText = it
     }, modifier = Modifier.width(360.dp))
 }
 
-fun createScreenCode(goals: SnapshotStateList<Goal>):String {
+fun createScreenCode(goals: SnapshotStateList<Goal>): String {
     var result = "fun "
     result += createCode(goals)
     result += "\n"

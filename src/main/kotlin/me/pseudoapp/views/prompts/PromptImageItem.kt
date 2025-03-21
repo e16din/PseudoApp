@@ -9,6 +9,7 @@ import me.pseudoapp.Goal
 @Composable
 fun PromptImageItem(
     goal: Goal,
+    onPromptChanged: (String) -> Unit,
     onRemoveClick: () -> Unit,
     canRemove: Boolean = true
 ) {
@@ -25,6 +26,6 @@ fun PromptImageItem(
             Text("Loadable")
         }
 
-        PromptItem(goal, onRemoveClick, canRemove)
+        PromptItem(goal,onPromptChanged, onRemoveClick, canRemove)
     }
 }

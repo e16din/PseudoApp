@@ -17,6 +17,7 @@ import me.pseudoapp.Goal
 @Composable
 fun PromptItem(
     goal: Goal,
+    onPromptChanged: (String) -> Unit,
     onRemoveClick: () -> Unit,
     canRemove: Boolean = true
 ) {
@@ -29,6 +30,7 @@ fun PromptItem(
             label = { Text("Prompt") },
             onValueChange = { value ->
                 goal.prompt.value = value
+                onPromptChanged(value)
             },
             modifier = Modifier.padding(vertical = 8.dp)
         )
