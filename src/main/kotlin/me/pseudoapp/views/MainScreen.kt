@@ -20,11 +20,13 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.input.key.*
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInParent
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import me.pseudoapp.Element
 import me.pseudoapp.Goal
 import me.pseudoapp.other.Rect
 import me.pseudoapp.other.copyToClipboard
+import me.pseudoapp.other.createScreenCode
 import me.pseudoapp.other.pickImage
 import me.pseudoapp.views.prompts.PromptImageItem
 import me.pseudoapp.views.prompts.PromptItem
@@ -40,6 +42,7 @@ fun MainScreen() {
     val undoGoals = remember { mutableStateListOf<Goal>() }
 
     val requester = remember { FocusRequester() }
+    val borderWidth =  with(LocalDensity.current) { borderWidth.dp.toPx() }
 
     Column(
 
@@ -97,6 +100,7 @@ fun MainScreen() {
                     requester.requestFocus()
                 },
                 modifier = Modifier.weight(1f)
+                    .padding(6.dp)
                     .onGloballyPositioned { layoutCoordinates ->
                         val size = layoutCoordinates.size
                         val position = layoutCoordinates.positionInParent()
@@ -115,7 +119,7 @@ fun MainScreen() {
                                     area = layoutRect,
                                     element = Element(Element.Type.Screen),
                                     prompt = mutableStateOf("Создать Compose экран с элементами:"),
-                                    color = Color.Transparent
+                                    color = Color.LightGray
                                 )
                             )
                             updated.value = Unit

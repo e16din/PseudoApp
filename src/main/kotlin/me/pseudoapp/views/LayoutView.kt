@@ -32,7 +32,7 @@ import androidx.compose.ui.unit.sp
 import me.pseudoapp.*
 import me.pseudoapp.other.Rect
 import me.pseudoapp.other.measureTextWidth
-import me.pseudoapp.other.toPx
+import me.pseudoapp.other.convertToPx
 
 @Composable
 fun LayoutView(
@@ -94,7 +94,7 @@ fun LayoutView(
                     color = goal.color,
                     topLeft = goal.area.topLeft,
                     size = goal.area.size,
-                    style = Stroke(width = 4.dp.toPx())
+                    style = Stroke(width = borderWidth.dp.toPx())
                 )
             }
         }
@@ -104,11 +104,11 @@ fun LayoutView(
             Box(
                 modifier = Modifier
                     .offset(
-                        x = goal.area.bottomRight.x.toPx().dp - (measureTextWidth(
+                        x = goal.area.bottomRight.x.convertToPx().dp - (measureTextWidth(
                             goal.element.type.name,
                             textStyle
                         ) / 2),
-                        y = goal.area.bottomRight.y.toPx().dp
+                        y = goal.area.bottomRight.y.convertToPx().dp
                     )
                     .clip(CircleShape)
                     .background(Color.Green)
@@ -143,8 +143,8 @@ fun LayoutView(
             endPoint = null
         }
 
-        val x = if (endPoint == null) 0.dp else (endPoint!!.x.toPx()).dp
-        val y = if (endPoint == null) 0.dp else (endPoint!!.y.toPx()).dp
+        val x = if (endPoint == null) 0.dp else (endPoint!!.x.convertToPx()).dp
+        val y = if (endPoint == null) 0.dp else (endPoint!!.y.convertToPx()).dp
         DropdownMenu(
             expanded = elementsMenuExpanded,
             onDismissRequest = { elementsMenuExpanded = false },
@@ -203,17 +203,16 @@ fun LayoutView(
     }
 }
 
+const val borderWidth = 4f
+
 private val colors = listOf(
-    Color.Red.copy(alpha = 0.75f),
-//    Color.Orange.copy(alpha = 0.75f),
-    Color.Yellow.copy(alpha = 0.75f),
-    Color.Green.copy(alpha = 0.75f),
-//    Color.Sky.copy(alpha = 0.75f),
-    Color.Blue.copy(alpha = 0.75f),
-//    Color.Violet.copy(alpha = 0.75f),
-    Color.Black.copy(alpha = 0.75f),
-    Color.Gray.copy(alpha = 0.75f),
-    Color.White.copy(alpha = 0.75f),
+    Color(0xFFF44336), // Красный (Red)
+    Color(0xFFFF9800), // Оранжевый (Orange)
+    Color(0xFFFFEB3B), // Желтый (Yellow)
+    Color(0xFF4CAF50), // Зеленый (Green)
+    Color(0xFF2196F3), // Голубой (Blue)
+    Color(0xFF3F51B5), // Индиго (Indigo)
+    Color(0xFF9C27B0)  // Фиолетовый (Violet)
 )
 private var colorPosition = 0
 var selectedColor = nextColor()
