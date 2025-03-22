@@ -21,8 +21,7 @@ fun PromptItem(
     onRemoveClick: () -> Unit,
     canRemove: Boolean = true
 ) {
-    val elementName =
-        if (goal.element.tag != null && goal.element.tag != "") goal.element.tag else goal.element.type.name
+    val elementName = goal.element.name
     Text(elementName)
     Box {
         TextField(

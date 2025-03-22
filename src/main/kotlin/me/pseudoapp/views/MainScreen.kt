@@ -26,7 +26,7 @@ import me.pseudoapp.Element
 import me.pseudoapp.Goal
 import me.pseudoapp.other.Rect
 import me.pseudoapp.other.copyToClipboard
-import me.pseudoapp.other.createScreenCode
+import me.pseudoapp.other.createContainerCode
 import me.pseudoapp.other.pickImage
 import me.pseudoapp.views.prompts.PromptImageItem
 import me.pseudoapp.views.prompts.PromptItem
@@ -117,7 +117,7 @@ fun MainScreen() {
                             goals.add(
                                 Goal(
                                     area = layoutRect,
-                                    element = Element(Element.Type.Screen),
+                                    element = Element(Element.Type.Screen, "MainScreen"),
                                     prompt = mutableStateOf("Создать Compose экран с элементами:"),
                                     color = Color.LightGray
                                 )
@@ -175,7 +175,7 @@ fun MainScreen() {
             }
 
                 Card {
-                    ResultView(createScreenCode(goals))
+                    ResultView(createContainerCode(goals))
                 }
 
 

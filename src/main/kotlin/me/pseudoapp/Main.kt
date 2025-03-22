@@ -30,7 +30,7 @@ fun main() = application {
 
 data class Goal(var area: Rect, val color:Color, val element: Element, val prompt: MutableState<String>)
 
-data class Element(val type: Type, val tag: String? = null) {
+data class Element(val type: Type, val name: String) {
     enum class Type {
         Screen,
         CustomView,

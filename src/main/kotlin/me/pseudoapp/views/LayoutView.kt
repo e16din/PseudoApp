@@ -30,9 +30,7 @@ import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import me.pseudoapp.*
-import me.pseudoapp.other.Rect
-import me.pseudoapp.other.measureTextWidth
-import me.pseudoapp.other.convertToPx
+import me.pseudoapp.other.*
 
 @Composable
 fun LayoutView(
@@ -61,10 +59,10 @@ fun LayoutView(
                     change.consume()
 
                     startPoint?.let { start ->
-                        if (endPoint == null) {
-                            endPoint = start + dragAmount
+                        endPoint = if (endPoint == null) {
+                            start + dragAmount
                         } else {
-                            endPoint = endPoint!! + dragAmount
+                            endPoint!! + dragAmount
                         }
                     }
                 },
@@ -115,22 +113,19 @@ fun LayoutView(
             ) {
                 Text(
                     style = textStyle,
-                    text = if (goal.element.type == Element.Type.CustomView)
-                        goal.element.tag ?: goal.element.type.name
-                    else
-                        goal.element.type.name,
+                    text = goal.element.name,
                     modifier = Modifier
                         .padding(horizontal = 8.dp, vertical = 2.dp)
                 )
             }
         }
 
-        fun selectElement(it: Element.Type, tag: String? = null) {
+        fun selectElement(it: Element.Type, name: String) {
             val finalRect = Rect(startPoint!!, endPoint!!)
 
             val goal = Goal(
                 area = finalRect,
-                element = Element(it, tag),
+                element = Element(it, name),
                 prompt = mutableStateOf(""),
                 color = selectedColor
             )
@@ -195,7 +190,18 @@ fun LayoutView(
             Element.Type.entries.drop(1).forEach {
                 DropdownMenuItem(
                     onClick = {
-                        selectElement(it)
+                        val tag = when(it){
+                            Element.Type.Screen -> {
+                                screensCount += 1
+                                "${it.name}$screensCount"
+                            }
+                            Element.Type.CustomView -> {
+                                customElementsCount += 1
+                                "${it.name}$customElementsCount"
+                            }
+                            else -> it.name
+                        }
+                        selectElement(it, tag)
                     }
                 ) { Text(menuItemTextBy(it)) }
             }
