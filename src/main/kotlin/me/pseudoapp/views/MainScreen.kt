@@ -2,10 +2,7 @@ package me.pseudoapp.views
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.focusable
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.Button
 import androidx.compose.material.Card
@@ -20,10 +17,9 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.input.key.*
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInParent
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import me.pseudoapp.Element
-import me.pseudoapp.Goal
+import me.pseudoapp.View
 import me.pseudoapp.other.Rect
 import me.pseudoapp.other.copyToClipboard
 import me.pseudoapp.other.createContainerCode
@@ -31,18 +27,19 @@ import me.pseudoapp.other.pickImage
 import me.pseudoapp.views.prompts.PromptImageItem
 import me.pseudoapp.views.prompts.PromptItem
 import me.pseudoapp.views.prompts.PromptListItem
+import me.pseudoapp.views.scrollbar.LazyListScrollbarHost
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun MainScreen() {
     var selectedImage by remember { mutableStateOf<ImageBitmap?>(null) }
     var layoutRect by remember { mutableStateOf<Rect>(Rect()) }
-    val goals = remember { mutableStateListOf<Goal>() }
+    val elements = remember { mutableStateListOf<Element>() }
     val updated = remember { mutableStateOf(Unit) }
-    val undoGoals = remember { mutableStateListOf<Goal>() }
+    val undoElements = remember { mutableStateListOf<Element>() }
 
     val requester = remember { FocusRequester() }
-    val borderWidth =  with(LocalDensity.current) { borderWidth.dp.toPx() }
+    val selectedView = remember { View("MainView") }
 
     Column(
 
@@ -53,10 +50,10 @@ fun MainScreen() {
                 && keyEvent.type == KeyEventType.KeyUp
             ) {
                 println("Ctrl + Shifrt + Z")
-                if (undoGoals.isNotEmpty()) {
-                    goals.add(undoGoals.last())
+                if (undoElements.isNotEmpty()) {
+                    elements.add(undoElements.last())
                     updated.value = Unit
-                    undoGoals.removeAt(undoGoals.size - 1)
+                    undoElements.removeAt(undoElements.size - 1)
                 }
                 return@onKeyEvent true
 
@@ -65,9 +62,9 @@ fun MainScreen() {
                 && keyEvent.type == KeyEventType.KeyUp
             ) {
                 println("Ctrl + Z")
-                if (goals.isNotEmpty()) {
-                    undoGoals.add(goals.last())
-                    goals.removeAt(goals.size - 1)
+                if (elements.isNotEmpty()) {
+                    undoElements.add(elements.last())
+                    elements.removeAt(elements.size - 1)
                     updated.value = Unit
                 }
                 return@onKeyEvent true
@@ -92,10 +89,10 @@ fun MainScreen() {
         Row {
             LayoutView(
                 selectedImage,
-                goals,
+                elements,
                 onNewGoal = { goal ->
                     selectedColor = nextColor()
-                    goals.add(goal)
+                    elements.add(goal)
                     updated.value = Unit
                     requester.requestFocus()
                 },
@@ -113,70 +110,81 @@ fun MainScreen() {
                             )
                         )
 
-                        if (goals.isEmpty()) {
-                            goals.add(
-                                Goal(
+                        if (elements.isEmpty()) {
+                            elements.add(
+                                Element(
                                     area = layoutRect,
-                                    element = Element(Element.Type.Screen, "MainScreen"),
+                                    type = Element.Type.List,
                                     prompt = mutableStateOf("Создать Compose экран с элементами:"),
                                     color = Color.LightGray
                                 )
                             )
                             updated.value = Unit
                         } else {
-                            goals.first().area = layoutRect
+                            elements.first().area = layoutRect
                         }
                     }
             )
             Card {
-                LazyColumn(modifier = Modifier.width(320.dp).padding(16.dp)) {
-                    stickyHeader {
-                        Button(onClick = {
-                            var finalPrompt = "${goals.first()}\n"
-                            goals.drop(1).forEach {
-                                finalPrompt += "-${it.prompt};\n"
+
+                LazyListScrollbarHost(modifier = Modifier
+                    .width(320.dp)
+                    .padding(16.dp)) { lazyListState ->
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxSize(),
+                        state = lazyListState
+                    ) {
+                        stickyHeader {
+                            Button(onClick = {
+                                var finalPrompt = "${elements.first()}\n"
+                                elements.forEach {
+                                    finalPrompt += "-${it.prompt};\n"
+                                }
+                                copyToClipboard(finalPrompt)
+
+                            }) {
+                                Text("Копировать результат")
                             }
-                            copyToClipboard(finalPrompt)
 
-                        }) {
-                            Text("Копировать результат")
                         }
+                        items(elements.size) { i ->
+                            val goal = elements[i]
+                            val onRemoveClick = {
+                                elements.removeAt(i)
+                                updated.value = Unit
+                                Unit
+                            }
+                            val onPromptChanged: (String) -> Unit = { value ->
+                                requester.freeFocus()
+                            }
+                            when (goal.type) {
+                                Element.Type.Image -> PromptImageItem(
+                                    goal,
+                                    onPromptChanged,
+                                    onRemoveClick,
+                                    canRemove = i != 0
+                                )
 
-                    }
-                    items(goals.size) { i ->
-                        val goal = goals[i]
-                        val onRemoveClick = {
-                            goals.removeAt(i)
-                            updated.value = Unit
-                            Unit
-                        }
-                        val onPromptChanged: (String) -> Unit = { value ->
-                            requester.freeFocus()
-                        }
-                        when (goal.element.type) {
-                            Element.Type.Image -> PromptImageItem(
-                                goal,
-                                onPromptChanged,
-                                onRemoveClick,
-                                canRemove = i != 0
-                            )
+                                Element.Type.List -> PromptListItem(
+                                    goal,
+                                    onPromptChanged,
+                                    onRemoveClick,
+                                    canRemove = i != 0
+                                )
 
-                            Element.Type.List -> PromptListItem(
-                                goal,
-                                onPromptChanged,
-                                onRemoveClick,
-                                canRemove = i != 0
-                            )
-
-                            else -> PromptItem(goal, onPromptChanged, onRemoveClick, canRemove = i != 0)
+                                else -> PromptItem(goal, onPromptChanged, onRemoveClick, canRemove = i != 0)
+                            }
                         }
                     }
                 }
             }
 
-                Card {
-                    ResultView(createContainerCode(goals))
-                }
+            Card {
+                ResultView(
+                    createContainerCode(elements, selectedView.name)
+                )
+            }
 
 
         }

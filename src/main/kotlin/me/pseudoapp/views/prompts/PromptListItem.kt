@@ -5,11 +5,11 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.material.Checkbox
 import androidx.compose.material.Text
 import androidx.compose.runtime.*
-import me.pseudoapp.Goal
+import me.pseudoapp.Element
 
 @Composable
 fun PromptListItem(
-    goal: Goal,
+    element: Element,
     onPromptChanged: (String) -> Unit,
     onRemoveClick: () -> Unit,
     canRemove: Boolean = true
@@ -37,6 +37,6 @@ fun PromptListItem(
             Text("Lazy")
         }
 
-        PromptItem(goal, onPromptChanged, onRemoveClick, canRemove)
+        PromptItem(element, onPromptChanged, onRemoveClick, canRemove)
     }
 }

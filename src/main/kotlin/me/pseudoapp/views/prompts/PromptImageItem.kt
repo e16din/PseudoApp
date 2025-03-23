@@ -4,11 +4,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.material.*
 import androidx.compose.runtime.*
-import me.pseudoapp.Goal
+import me.pseudoapp.Element
 
 @Composable
 fun PromptImageItem(
-    goal: Goal,
+    element: Element,
     onPromptChanged: (String) -> Unit,
     onRemoveClick: () -> Unit,
     canRemove: Boolean = true
@@ -26,6 +26,6 @@ fun PromptImageItem(
             Text("Loadable")
         }
 
-        PromptItem(goal,onPromptChanged, onRemoveClick, canRemove)
+        PromptItem(element,onPromptChanged, onRemoveClick, canRemove)
     }
 }

@@ -35,8 +35,8 @@ import me.pseudoapp.other.*
 @Composable
 fun LayoutView(
     selectedImage: ImageBitmap?,
-    goals: SnapshotStateList<Goal>,
-    onNewGoal: (Goal) -> Unit,
+    elements: SnapshotStateList<Element>,
+    onNewGoal: (Element) -> Unit,
     modifier: Modifier
 ) {
 
@@ -87,7 +87,7 @@ fun LayoutView(
                 )
             }
 
-            goals.forEach { goal ->
+            elements.forEach { goal ->
                 drawRect(
                     color = goal.color,
                     topLeft = goal.area.topLeft,
@@ -97,13 +97,13 @@ fun LayoutView(
             }
         }
 
-        goals.forEach { goal ->
+        elements.forEach { goal ->
             val textStyle = TextStyle.Default.copy(fontSize = 8.sp)
             Box(
                 modifier = Modifier
                     .offset(
                         x = goal.area.bottomRight.x.convertToPx().dp - (measureTextWidth(
-                            goal.element.type.name,
+                            goal.type.name,
                             textStyle
                         ) / 2),
                         y = goal.area.bottomRight.y.convertToPx().dp
@@ -113,24 +113,24 @@ fun LayoutView(
             ) {
                 Text(
                     style = textStyle,
-                    text = goal.element.name,
+                    text = goal.type.name,
                     modifier = Modifier
                         .padding(horizontal = 8.dp, vertical = 2.dp)
                 )
             }
         }
 
-        fun selectElement(it: Element.Type, name: String) {
+        fun selectElement(it: Element.Type, about: String) {
             val finalRect = Rect(startPoint!!, endPoint!!)
 
-            val goal = Goal(
+            val element = Element(
                 area = finalRect,
-                element = Element(it, name),
-                prompt = mutableStateOf(""),
+                type = it,
+                prompt = mutableStateOf(about),
                 color = selectedColor
             )
 
-            onNewGoal(goal)
+            onNewGoal(element)
 
             elementsMenuExpanded = false
 
@@ -150,25 +150,24 @@ fun LayoutView(
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(horizontal = 16.dp)
             )
-            var text by remember { mutableStateOf("") }
+            var aboutText by remember { mutableStateOf("") }
             val focusRequester = remember { FocusRequester() }
             LaunchedEffect(Unit) {
                 focusRequester.requestFocus()
             }
             TextField(
-                value = text,
-                label = { Text("View Name") },
+                value = aboutText,
+                label = { Text("About") },
                 singleLine = true,
                 maxLines = 1,
                 onValueChange = {
-                    text = it
+                    aboutText = it
                 },
                 modifier = Modifier.focusRequester(focusRequester).onKeyEvent {
                     when {
-                        it.type == KeyEventType.KeyUp && it.key == Key.Enter -> {
-                            selectElement(Element.Type.CustomView, text.replace("\n", ""))
-                            true
-                        }
+//                        it.type == KeyEventType.KeyUp && it.key == Key.Enter -> {
+//                            true
+//                        }
 
                         else -> false
                     }
@@ -177,31 +176,19 @@ fun LayoutView(
 
             fun menuItemTextBy(type: Element.Type): String {
                 return when (type) {
-                    Element.Type.Screen -> "Screen" // "StartScreen"
-                    Element.Type.CustomView -> "CustomView" // "StartScreen"
                     Element.Type.Button -> "Button" //"ClickTo"
                     Element.Type.TextField -> "TextField" //"InputText"
                     Element.Type.List -> "List" //"SelectItem"
                     Element.Type.Text -> "Text" //"LookAtText"
                     Element.Type.Image -> "Image" //"LookAtImage"
+                    Element.Type.Box -> "Box"
                 }
             }
 
-            Element.Type.entries.drop(1).forEach {
+            Element.Type.entries.forEach {
                 DropdownMenuItem(
                     onClick = {
-                        val tag = when(it){
-                            Element.Type.Screen -> {
-                                screensCount += 1
-                                "${it.name}$screensCount"
-                            }
-                            Element.Type.CustomView -> {
-                                customElementsCount += 1
-                                "${it.name}$customElementsCount"
-                            }
-                            else -> it.name
-                        }
-                        selectElement(it, tag)
+                        selectElement(it, aboutText)
                     }
                 ) { Text(menuItemTextBy(it)) }
             }

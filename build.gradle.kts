@@ -22,6 +22,7 @@ dependencies {
     // With compose.desktop.common you will also lose @Preview functionality
     implementation(compose.desktop.currentOs)
     implementation("org.jetbrains.androidx.lifecycle:lifecycle-viewmodel-compose:2.8.2")
+
 //    implementation("androidx.compose.ui:ui-android:1.7.7")
 //    implementation("androidx.compose.ui:ui-graphics-android:1.7.7")
 }

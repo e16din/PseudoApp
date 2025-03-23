@@ -12,23 +12,23 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import me.pseudoapp.Goal
+import me.pseudoapp.Element
 
 @Composable
 fun PromptItem(
-    goal: Goal,
+    element: Element,
     onPromptChanged: (String) -> Unit,
     onRemoveClick: () -> Unit,
     canRemove: Boolean = true
 ) {
-    val elementName = goal.element.name
+    val elementName = element.type.name
     Text(elementName)
     Box {
         TextField(
-            value = goal.prompt.value,
+            value = element.prompt.value,
             label = { Text("Prompt") },
             onValueChange = { value ->
-                goal.prompt.value = value
+                element.prompt.value = value
                 onPromptChanged(value)
             },
             modifier = Modifier.padding(vertical = 8.dp)

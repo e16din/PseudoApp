@@ -28,22 +28,17 @@ fun main() = application {
     }
 }
 
-data class Goal(var area: Rect, val color:Color, val element: Element, val prompt: MutableState<String>)
-
-data class Element(val type: Type, val name: String) {
+data class Element(var area: Rect, val color:Color, val type: Type, val prompt: MutableState<String>) {
     enum class Type {
-        Screen,
-        CustomView,
         Text,
         Button,
         TextField,
         Image, // Icon || Coil
-        List, // Lazy || Constant & Horizontal || Vertical /TODO: сразу квадрат итема добавлять, и перетаскивать за лейбл, по alt показывать крестики удаления
+        Box,
+        List, // Lazy || Constant & Horizontal || Vertical /TODO: сразу квадрат итема добавлять, и перетаскивать за лейбл, по alt показывать крестики удалени
     }
 }
 
-// task:
-// if (goal in CustomView) print goal in CustomView body
-// else if (goal is basic view && goal in other basic view rect) print Box, print otherView, print goal in Box
-// else if(goal is basic view && goal in other container view rect) print goal in Container View
-// else print Goal in Screen
+
+
+data class View(val name:String, val designImagePath: String? = null)

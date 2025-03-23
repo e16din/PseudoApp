@@ -9,6 +9,8 @@ data class Rect(
 ) {
     val size: Size
         get() = Size(bottomRight.x - topLeft.x, bottomRight.y - topLeft.y)
+    val count
+        get() = size.width+size.height
 }
 
 fun Rect.contains(area: Rect): Boolean {

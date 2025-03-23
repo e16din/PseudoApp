@@ -11,7 +11,6 @@ import androidx.compose.ui.unit.dp
 
 @Composable
 fun ResultView(code: String) {
-    println("ResultView: $code")
     var codeText by mutableStateOf(code)
 
     TextField(value = codeText, onValueChange = {
