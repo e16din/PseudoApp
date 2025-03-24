@@ -35,6 +35,7 @@ fun MainScreen() {
     var selectedImage by remember { mutableStateOf<ImageBitmap?>(null) }
     var layoutRect by remember { mutableStateOf<Rect>(Rect()) }
     val elements = remember { mutableStateListOf<Element>() }
+    val rows = remember { mutableStateListOf<Element>() }
     val updated = remember { mutableStateOf(Unit) }
     val undoElements = remember { mutableStateListOf<Element>() }
 
@@ -90,9 +91,59 @@ fun MainScreen() {
             LayoutView(
                 selectedImage,
                 elements,
-                onNewGoal = { goal ->
+                rows,
+                onNewGoal = { element ->
                     selectedColor = nextColor()
-                    elements.add(goal)
+                    elements.add(element)
+
+                    rows.clear()
+                    val sorted = elements.sortedWith(Comparator { t, t2 ->
+                        if (t.area.topLeft.y < t2.area.topLeft.y
+                            && t.area.topLeft.x < t2.area.topLeft.x
+                        ) {
+                            -1
+                        } else {
+                            1
+                        }
+                    }).drop(1)
+
+                    var start = sorted.first().area.topLeft
+                    var end = sorted.first().area.bottomRight
+                    for (e in sorted) {
+                        if (e.area.topLeft.y > end.y) {
+                            rows.add(Element(
+                                area = Rect(start, end),
+                                color = nextColor(),
+                                type = Element.Type.Row,
+                                prompt = mutableStateOf("")
+                            ))
+
+                            start = e.area.topLeft
+                            end = e.area.bottomRight
+                            continue
+                        }
+                        var lastX = end.x
+                        var bottomY = end.y
+                        if(e.area.bottomRight.y > end.y){
+                            bottomY = e.area.bottomRight.y
+                        }
+                        if(e.area.bottomRight.x > end.x){
+                            lastX = e.area.bottomRight.x
+                        }
+                        end = Offset(lastX, bottomY)
+                        var topY = start.y
+                        if(e.area.topLeft.y  < topY){
+                            topY = e.area.topLeft.y
+                        }
+                        start = Offset(start.x, topY)
+                    }
+                    rows.add(Element(
+                        area = Rect(start, end),
+                        color = nextColor(),
+                        type = Element.Type.Row,
+                        prompt = mutableStateOf("")
+                    ))
+
                     updated.value = Unit
                     requester.requestFocus()
                 },
@@ -114,7 +165,7 @@ fun MainScreen() {
                             elements.add(
                                 Element(
                                     area = layoutRect,
-                                    type = Element.Type.List,
+                                    type = Element.Type.Column,
                                     prompt = mutableStateOf("Создать Compose экран с элементами:"),
                                     color = Color.LightGray
                                 )
@@ -127,9 +178,11 @@ fun MainScreen() {
             )
             Card {
 
-                LazyListScrollbarHost(modifier = Modifier
-                    .width(320.dp)
-                    .padding(16.dp)) { lazyListState ->
+                LazyListScrollbarHost(
+                    modifier = Modifier
+                        .width(320.dp)
+                        .padding(16.dp)
+                ) { lazyListState ->
                     LazyColumn(
                         modifier = Modifier
                             .fillMaxSize(),
@@ -159,14 +212,14 @@ fun MainScreen() {
                                 requester.freeFocus()
                             }
                             when (goal.type) {
-                                Element.Type.Image -> PromptImageItem(
+                                Element.Type.Coil -> PromptImageItem(
                                     goal,
                                     onPromptChanged,
                                     onRemoveClick,
                                     canRemove = i != 0
                                 )
 
-                                Element.Type.List -> PromptListItem(
+                                Element.Type.Column -> PromptListItem(
                                     goal,
                                     onPromptChanged,
                                     onRemoveClick,

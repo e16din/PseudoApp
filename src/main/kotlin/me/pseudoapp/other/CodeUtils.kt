@@ -39,10 +39,13 @@ fun Element.innerGoals(elements: List<Element>): List<Element> {
 class Node(val nodes: MutableList<Node> = mutableListOf())
 
 fun createContentCode(source: List<Element>): String {
-
+    // NOTE: Обход дерева - это линия, список.
+    // Сортировкой элементов можно получить последовательность обхода дерева
+    // не преобразуя список в дерево
     val elements = source.sortedWith(Comparator { t, t2 ->
-        if(t.area.topLeft.y < t2.area.topLeft.y
-            && t.area.topLeft.x < t2.area.topLeft.x  ) {
+        if (t.area.topLeft.y < t2.area.topLeft.y
+            && t.area.topLeft.x < t2.area.topLeft.x
+        ) {
             -1
         } else {
             1
@@ -55,18 +58,32 @@ fun createContentCode(source: List<Element>): String {
             val name = element.type.name
             val tabs = tabs(tabsDeep)
             val inner = element.innerGoals(elements)
-            result += when (element.type) {
-                else -> {
+            result +=
 
-                    if (inner.isEmpty()) {
-                        "$tabs$name(modifier = Modifier)\n"
-                    } else {
-                        "$tabs$name(modifier = Modifier) {\n" +
-                                createContentCode(inner) +
-                                "}\n"
+                if (inner.isEmpty()) {
+                    "$tabs$name(modifier = Modifier)\n"
+                } else {
+                    when (element.type) {
+                        Element.Type.Text,
+                        Element.Type.TextField,
+                        Element.Type.Icon,
+                        Element.Type.Coil -> {
+                            "${tabs}Box(modifier = Modifier) {\n" +
+                                    "$tabs$name(modifier = Modifier)\n" +
+                                    createContentCode(inner) +
+                                    "}\n"
+                        }
+
+                        Element.Type.Button,
+                        Element.Type.Box,
+                        Element.Type.Row,
+                        Element.Type.Column -> {
+                            "$tabs$name(modifier = Modifier) {\n" +
+                                    createContentCode(inner) +
+                                    "}\n"
+                        }
                     }
                 }
-            }
             handledContent.addAll(inner)
         }
     }

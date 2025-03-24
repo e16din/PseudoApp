@@ -36,6 +36,7 @@ import me.pseudoapp.other.*
 fun LayoutView(
     selectedImage: ImageBitmap?,
     elements: SnapshotStateList<Element>,
+    rows: List<Element>,
     onNewGoal: (Element) -> Unit,
     modifier: Modifier
 ) {
@@ -87,12 +88,21 @@ fun LayoutView(
                 )
             }
 
-            elements.forEach { goal ->
+            elements.forEach { element ->
                 drawRect(
-                    color = goal.color,
-                    topLeft = goal.area.topLeft,
-                    size = goal.area.size,
+                    color = element.color,
+                    topLeft = element.area.topLeft,
+                    size = element.area.size,
                     style = Stroke(width = borderWidth.dp.toPx())
+                )
+            }
+
+            rows.forEach { element ->
+                drawRect(
+                    color = Color.Black,
+                    topLeft = element.area.topLeft,
+                    size = element.area.size,
+                    style = Stroke(width = 1f)
                 )
             }
         }
@@ -178,9 +188,11 @@ fun LayoutView(
                 return when (type) {
                     Element.Type.Button -> "Button" //"ClickTo"
                     Element.Type.TextField -> "TextField" //"InputText"
-                    Element.Type.List -> "List" //"SelectItem"
+                    Element.Type.Column -> "Column" //"SelectItem"
+                    Element.Type.Row -> "Row" //"SelectItem"
                     Element.Type.Text -> "Text" //"LookAtText"
-                    Element.Type.Image -> "Image" //"LookAtImage"
+                    Element.Type.Icon -> "Icon" //"LookAtImage"
+                    Element.Type.Coil -> "Coil" //"LookAtImage"
                     Element.Type.Box -> "Box"
                 }
             }

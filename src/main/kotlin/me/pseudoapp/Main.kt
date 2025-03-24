@@ -28,17 +28,18 @@ fun main() = application {
     }
 }
 
-data class Element(var area: Rect, val color:Color, val type: Type, val prompt: MutableState<String>) {
+data class Element(var area: Rect, val color: Color, val type: Type, val prompt: MutableState<String>) {
     enum class Type {
         Text,
-        Button,
         TextField,
-        Image, // Icon || Coil
+        Icon,
+        Coil,
+        Button,
         Box,
-        List, // Lazy || Constant & Horizontal || Vertical /TODO: сразу квадрат итема добавлять, и перетаскивать за лейбл, по alt показывать крестики удалени
+        Row,
+        Column
     }
 }
 
 
-
-data class View(val name:String, val designImagePath: String? = null)
+data class View(val name: String, val designImagePath: String? = null)
