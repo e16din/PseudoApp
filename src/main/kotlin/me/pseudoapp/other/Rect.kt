@@ -19,3 +19,10 @@ fun Rect.contains(area: Rect): Boolean {
             && this.bottomRight.x > area.bottomRight.x
             && this.bottomRight.y > area.bottomRight.y
 }
+
+fun Rect.isInnerOf(area: Rect): Boolean {
+    return area.topLeft.x < this.topLeft.x
+            && area.topLeft.y < this.topLeft.y
+            && area.bottomRight.x > this.bottomRight.x
+            && area.bottomRight.y > this.bottomRight.y
+}

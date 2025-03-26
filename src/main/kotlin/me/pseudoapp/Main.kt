@@ -28,7 +28,11 @@ fun main() = application {
     }
 }
 
-data class Element(var area: Rect, val color: Color, val type: Type, val prompt: MutableState<String>) {
+data class Element(var area: Rect,
+                   val color: Color,
+                   val type: Type,
+                   val prompt: MutableState<String>,
+                   var inner:List<Element>) {
     enum class Type {
         Text,
         TextField,

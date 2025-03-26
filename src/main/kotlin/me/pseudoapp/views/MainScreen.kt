@@ -20,10 +20,7 @@ import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.unit.dp
 import me.pseudoapp.Element
 import me.pseudoapp.View
-import me.pseudoapp.other.Rect
-import me.pseudoapp.other.copyToClipboard
-import me.pseudoapp.other.createContainerCode
-import me.pseudoapp.other.pickImage
+import me.pseudoapp.other.*
 import me.pseudoapp.views.prompts.PromptImageItem
 import me.pseudoapp.views.prompts.PromptItem
 import me.pseudoapp.views.prompts.PromptListItem
@@ -86,6 +83,45 @@ fun MainScreen() {
             Text("Выбрать изображение")
         }
 
+        fun updateInnerRows(source: List<Element>) {
+            for (element in source) {
+                val sortedRows = sortedRows(source)
+                for (it in sortedRows) {
+                    if (it.size < 2) {
+                        continue
+                    }
+
+                    val start = it.first().area.topLeft
+                    val end = it.last().area.bottomRight
+
+                    val minY = it.minBy { it.area.topLeft.y }.area.topLeft.y
+                    val maxY = it.maxBy { it.area.bottomRight.y }.area.bottomRight.y
+                    rows.add(
+                        Element(
+                            area = Rect(start.copy(y = minY), end.copy(y = maxY)),
+                            color = nextColor(),
+                            type = Element.Type.Row,
+                            prompt = mutableStateOf(""),
+                            inner = mutableListOf()
+                        )
+                    )
+                }
+            }
+
+            source.forEach {
+                val inner = it.inner(elements)
+                it.inner = inner
+                println(inner)
+                updateInnerRows(inner)
+            }
+        }
+
+        fun updateAllRows() {
+            val element = elements.first()
+            val inner = element.inner(elements)
+            element.inner = inner
+            updateInnerRows(inner)
+        }
 
         Row {
             LayoutView(
@@ -96,56 +132,12 @@ fun MainScreen() {
                     selectedColor = nextColor()
                     elements.add(element)
 
-                    rows.clear()
-                    val sorted = elements.sortedWith(Comparator { t, t2 ->
-                        if (t.area.topLeft.y < t2.area.topLeft.y
-                            && t.area.topLeft.x < t2.area.topLeft.x
-                        ) {
-                            -1
-                        } else {
-                            1
-                        }
-                    }).drop(1)
-
-                    var start = sorted.first().area.topLeft
-                    var end = sorted.first().area.bottomRight
-                    for (e in sorted) {
-                        if (e.area.topLeft.y > end.y) {
-                            rows.add(Element(
-                                area = Rect(start, end),
-                                color = nextColor(),
-                                type = Element.Type.Row,
-                                prompt = mutableStateOf("")
-                            ))
-
-                            start = e.area.topLeft
-                            end = e.area.bottomRight
-                            continue
-                        }
-                        var lastX = end.x
-                        var bottomY = end.y
-                        if(e.area.bottomRight.y > end.y){
-                            bottomY = e.area.bottomRight.y
-                        }
-                        if(e.area.bottomRight.x > end.x){
-                            lastX = e.area.bottomRight.x
-                        }
-                        end = Offset(lastX, bottomY)
-                        var topY = start.y
-                        if(e.area.topLeft.y  < topY){
-                            topY = e.area.topLeft.y
-                        }
-                        start = Offset(start.x, topY)
-                    }
-                    rows.add(Element(
-                        area = Rect(start, end),
-                        color = nextColor(),
-                        type = Element.Type.Row,
-                        prompt = mutableStateOf("")
-                    ))
-
                     updated.value = Unit
                     requester.requestFocus()
+
+                    rows.clear()
+
+                    updateAllRows()
                 },
                 modifier = Modifier.weight(1f)
                     .padding(6.dp)
@@ -167,7 +159,8 @@ fun MainScreen() {
                                     area = layoutRect,
                                     type = Element.Type.Column,
                                     prompt = mutableStateOf("Создать Compose экран с элементами:"),
-                                    color = Color.LightGray
+                                    color = Color.LightGray,
+                                    inner = mutableListOf()
                                 )
                             )
                             updated.value = Unit

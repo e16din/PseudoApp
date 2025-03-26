@@ -1,6 +1,9 @@
 package me.pseudoapp.other
 
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.util.fastAny
 import me.pseudoapp.Element
+import me.pseudoapp.views.nextColor
 
 var screensCount = 0
 var customElementsCount = 0
@@ -8,13 +11,17 @@ var tabsDeep = 0
 
 var handledContent = mutableListOf<Element>()
 
+
 fun createContainerCode(elements: List<Element>, name: String): String {
     var result = ""
+    if (elements.isEmpty()) {
+        return result
+    }
 
     tabsDeep = 1
 
     val tabs = tabs(tabsDeep)
-    val content = createContentCode(elements)
+    val content = createContentCode(elements.first().inner)
 
     result += "fun $name() {\n" +
             "$tabs$content\n" +
@@ -26,38 +33,33 @@ fun createContainerCode(elements: List<Element>, name: String): String {
     return result
 }
 
-fun Element.innerGoals(elements: List<Element>): List<Element> {
-    val inner = mutableListOf<Element>()
-    elements.forEach { j ->
-        if (this.area.contains(j.area)) {
-            inner.add(j)
+fun Element.inner(elements: List<Element>): List<Element> {
+    val result = mutableListOf<Element>()
+    elements.forEach { el ->
+        if(this.area.contains(el.area) && !result.any { it.area.contains(el.area)}){
+            result.add(el)
         }
     }
-    return inner
+    return result
 }
 
 class Node(val nodes: MutableList<Node> = mutableListOf())
 
 fun createContentCode(source: List<Element>): String {
-    // NOTE: Обход дерева - это линия, список.
-    // Сортировкой элементов можно получить последовательность обхода дерева
-    // не преобразуя список в дерево
-    val elements = source.sortedWith(Comparator { t, t2 ->
-        if (t.area.topLeft.y < t2.area.topLeft.y
-            && t.area.topLeft.x < t2.area.topLeft.x
-        ) {
-            -1
-        } else {
-            1
-        }
-    })
+    if (source.isEmpty()) {
+        return ""
+    }
+
+    val elements = source
 
     var result = ""
+    var i = 0
     for (element in elements) {
         if (!handledContent.contains(element)) {
-            val name = element.type.name
+            val name = element.type.name + i
+            i++
             val tabs = tabs(tabsDeep)
-            val inner = element.innerGoals(elements)
+            val inner = sortedElements(element.inner(elements))
             result +=
 
                 if (inner.isEmpty()) {
@@ -86,6 +88,41 @@ fun createContentCode(source: List<Element>): String {
                 }
             handledContent.addAll(inner)
         }
+    }
+
+    source.forEach {
+        val inner = it.inner(elements)
+        it.inner = inner
+        println(inner)
+        createContentCode(inner)
+    }
+
+    return result
+}
+
+private fun sortedElements(source: List<Element>): MutableList<Element> {
+    return mutableListOf<Element>().apply {
+        sortedRows(source).forEach {
+            addAll(it)
+        }
+    }
+}
+
+fun sortedRows(source: List<Element>): List<List<Element>> {
+    val content = source.toMutableList()
+    val result = mutableListOf<List<Element>>()
+
+    while (content.isNotEmpty()) {
+        val min = content.minBy { it.area.topLeft.y }
+        val row = content.filter { it.area.topLeft.y < min.area.bottomRight.y }
+            .sortedBy { it.area.topLeft.x }
+        content.removeAll(row)
+        result.add(row)
+        row.forEach {
+            print("addRow: ")
+            print("${it.type}, ")
+        }
+        println()
     }
 
     return result

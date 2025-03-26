@@ -137,7 +137,8 @@ fun LayoutView(
                 area = finalRect,
                 type = it,
                 prompt = mutableStateOf(about),
-                color = selectedColor
+                color = selectedColor,
+                inner = mutableListOf()
             )
 
             onNewGoal(element)
