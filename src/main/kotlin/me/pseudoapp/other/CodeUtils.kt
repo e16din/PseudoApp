@@ -1,15 +1,9 @@
 package me.pseudoapp.other
 
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.ui.util.fastAny
 import me.pseudoapp.Element
-import me.pseudoapp.views.nextColor
 
 var screensCount = 0
 var customElementsCount = 0
-var tabsDeep = 0
-
-var handledContent = mutableListOf<Element>()
 
 
 fun createContainerCode(elements: List<Element>, name: String): String {
@@ -17,18 +11,14 @@ fun createContainerCode(elements: List<Element>, name: String): String {
     if (elements.isEmpty()) {
         return result
     }
-
-    tabsDeep = 1
-
-    val tabs = tabs(tabsDeep)
-    val content = createContentCode(elements.first().inner)
+    val tabsDeep = 1
+    val content = createContentCode(elements.first().inner, elements, tabsDeep + 1)
 
     result += "fun $name() {\n" +
-            "$tabs$content\n" +
-            "}\n\n"
-
-
-    handledContent.clear()
+            "${tabs(tabsDeep)}Column {\n" +
+            "$content\n" +
+            "${tabs(tabsDeep)}}\n" +
+            "}\n"
 
     return result
 }
@@ -36,76 +26,78 @@ fun createContainerCode(elements: List<Element>, name: String): String {
 fun Element.inner(elements: List<Element>): List<Element> {
     val result = mutableListOf<Element>()
     elements.forEach { el ->
-        if(this.area.contains(el.area) && !result.any { it.area.contains(el.area)}){
+        if (this.area.contains(el.area) && !result.any { it.area.contains(el.area) }) {
             result.add(el)
         }
     }
     return result
 }
 
-class Node(val nodes: MutableList<Node> = mutableListOf())
+fun createContentCode(source: List<Element>, all: List<Element>, tabsDeep: Int): String {
+    var result = ""
 
-fun createContentCode(source: List<Element>): String {
     if (source.isEmpty()) {
-        return ""
+        return result
     }
 
-    val elements = source
+    val rows = sortedRows(source)
 
-    var result = ""
-    var i = 0
-    for (element in elements) {
-        if (!handledContent.contains(element)) {
-            val name = element.type.name + i
-            i++
-            val tabs = tabs(tabsDeep)
-            val inner = sortedElements(element.inner(elements))
-            result +=
 
-                if (inner.isEmpty()) {
-                    "$tabs$name(modifier = Modifier)\n"
-                } else {
-                    when (element.type) {
-                        Element.Type.Text,
-                        Element.Type.TextField,
-                        Element.Type.Icon,
-                        Element.Type.Coil -> {
-                            "${tabs}Box(modifier = Modifier) {\n" +
-                                    "$tabs$name(modifier = Modifier)\n" +
-                                    createContentCode(inner) +
-                                    "}\n"
-                        }
+    rows.forEach {
 
-                        Element.Type.Button,
-                        Element.Type.Box,
-                        Element.Type.Row,
-                        Element.Type.Column -> {
-                            "$tabs$name(modifier = Modifier) {\n" +
-                                    createContentCode(inner) +
-                                    "}\n"
-                        }
+        fun getCode(element: Element, i: Int, tabsDeep: Int): String {
+            val name = element.type.name
+
+            return if (element.inner.isEmpty()) {
+                "${tabs(tabsDeep)}$name(modifier = Modifier) // $i \n"
+            } else {
+                when (element.type) {
+                    Element.Type.Text,
+                    Element.Type.TextField,
+                    Element.Type.Icon,
+                    Element.Type.Coil -> {
+
+                        "${tabs(tabsDeep)}Box(modifier = Modifier) {\n" +
+                                "$${tabs(tabsDeep + 1)}$name(modifier = Modifier)\n" +
+                                createContentCode(element.inner, all, tabsDeep + 1) +
+                                "}\n"
+                    }
+
+                    Element.Type.Button,
+                    Element.Type.Box,
+                    Element.Type.Row,
+                    Element.Type.Column -> {
+                        "${tabs(tabsDeep)}$name(modifier = Modifier) {\n" +
+                                createContentCode(element.inner, all, tabsDeep + 1) +
+                                "}\n"
                     }
                 }
-            handledContent.addAll(inner)
+            }
         }
-    }
 
-    source.forEach {
-        val inner = it.inner(elements)
-        it.inner = inner
-        println(inner)
-        createContentCode(inner)
+        val elements = it
+        if (elements.size < 2) {
+            result += getCode(elements.first(), 0, tabsDeep)
+
+        } else if (elements.size == 2 &&
+            (elements[0].area.intersectWith(elements[1].area) && !elements[0].area.contains(elements[1].area))
+        ) { // Box
+            result += "${tabs(tabsDeep)}Box(modifier = Modifier) {\n"
+            for ((i, element) in elements.withIndex()) {
+                result += getCode(element, i, tabsDeep + 1)
+            }
+            result += "${tabs(tabsDeep)}}\n"
+
+        } else { // Row
+            result += "${tabs(tabsDeep)}Row(modifier = Modifier) {\n"
+            for ((i, element) in elements.withIndex()) {
+                result += getCode(element, i, tabsDeep + 1)
+            }
+            result += "${tabs(tabsDeep)}}\n"
+        }
     }
 
     return result
-}
-
-private fun sortedElements(source: List<Element>): MutableList<Element> {
-    return mutableListOf<Element>().apply {
-        sortedRows(source).forEach {
-            addAll(it)
-        }
-    }
 }
 
 fun sortedRows(source: List<Element>): List<List<Element>> {

@@ -14,19 +14,8 @@ fun PromptListItem(
     onRemoveClick: () -> Unit,
     canRemove: Boolean = true
 ) {
-    var isHorizontal by remember { mutableStateOf(false) }
     var isLazy by remember { mutableStateOf(false) }
     Column {
-        Row {
-            Checkbox(
-                checked = isHorizontal,
-                onCheckedChange = {
-                    isHorizontal = it
-                },
-            )
-            Text("Horizontal")
-        }
-
         Row {
             Checkbox(
                 checked = isLazy,
