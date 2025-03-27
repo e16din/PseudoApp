@@ -32,7 +32,7 @@ data class Element(var area: Rect,
                    val color: Color,
                    val type: Type,
                    val prompt: MutableState<String>,
-                   var inner:List<Element>) {
+                   var inner:MutableList<Element>) {
     enum class Type {
         Text,
         TextField,

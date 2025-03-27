@@ -85,7 +85,7 @@ fun MainScreen() {
 
         fun updateInnerRows(source: List<Element>) {
             for (element in source) {
-                val sortedRows = sortedRows(source)
+                val sortedRows = sortedLines(source)
                 for (it in sortedRows) {
                     if (it.size < 2) {
                         continue
