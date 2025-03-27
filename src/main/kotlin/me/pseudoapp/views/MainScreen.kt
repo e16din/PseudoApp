@@ -33,6 +33,7 @@ fun MainScreen() {
     var layoutRect by remember { mutableStateOf<Rect>(Rect()) }
     val elements = remember { mutableStateListOf<Element>() }
     val rows = remember { mutableStateListOf<Element>() }
+    val boxes = remember { mutableStateListOf<Element>() }
     val updated = remember { mutableStateOf(Unit) }
     val undoElements = remember { mutableStateListOf<Element>() }
 
@@ -108,12 +109,58 @@ fun MainScreen() {
                 }
             }
 
+
+
             source.forEach {
                 val inner = it.inner(elements)
                 it.inner = inner
                 println(inner)
                 updateInnerRows(inner)
             }
+        }
+
+        fun updateAllBoxes() {
+            fun addBoxes(rows: List<List<Element>>) {
+                rows.forEachIndexed { i, row ->
+                    for (j in row.indices) {
+                        if (j > 0 && isBox(row[j - 1], row[j])) {
+                            val inner = mutableListOf(row[j - 1], row[j])
+                            val minX = inner.minBy { it.area.topLeft.x }.area.topLeft.x
+                            val minY = inner.minBy { it.area.topLeft.y }.area.topLeft.y
+                            val maxX = inner.maxBy { it.area.bottomRight.x }.area.bottomRight.x
+                            val maxY = inner.maxBy { it.area.bottomRight.y }.area.bottomRight.y
+
+//                            elements.forEach {
+//                                it.inner.removeAll(inner)
+//                            }
+                            val boxElement = Element(
+                                area = Rect(
+                                    Offset(minX, minY),
+                                    Offset(maxX, maxY)
+                                ),
+                                color = Color.LightGray,
+                                type = Element.Type.Box,
+                                prompt = mutableStateOf(""),
+                                inner = inner
+                            )
+//                            println("Add New Box: ${boxElement}")
+//                            elements.filter { it.area.contains(boxElement.area) }.minBy {
+//                                it.area.topLeft.x - boxElement.area.topLeft.x
+//                            }.inner.add(boxElement)
+                            boxes.add(boxElement)
+                            println("NewBox: ${boxElement}")
+                        }
+
+                        addBoxes(
+                            sortedLines(row[j].inner)
+                        )
+                    }
+                }
+            }
+
+            val lines = sortedLines(elements.first().inner)
+            println("lines: ${lines}")
+            addBoxes(lines)
         }
 
         fun updateAllRows() {
@@ -128,6 +175,7 @@ fun MainScreen() {
                 selectedImage,
                 elements,
                 rows,
+                boxes,
                 onNewGoal = { element ->
                     selectedColor = nextColor()
                     elements.add(element)
@@ -136,8 +184,9 @@ fun MainScreen() {
                     requester.requestFocus()
 
                     rows.clear()
-
+                    boxes.clear()
                     updateAllRows()
+                    updateAllBoxes()
                 },
                 modifier = Modifier.weight(1f)
                     .padding(6.dp)

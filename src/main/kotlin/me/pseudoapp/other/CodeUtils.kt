@@ -12,9 +12,6 @@ fun createContainerCode(elements: List<Element>, name: String): String {
         return result
     }
     val source = elements.toMutableList()
-    fun isBox(element0: Element, element1: Element): Boolean {
-        return element0.area.intersectWith(element1.area)
-    }
 
     fun addBoxes(rows: List<List<Element>>) {
         rows.forEachIndexed { i, row ->
@@ -68,6 +65,10 @@ fun createContainerCode(elements: List<Element>, name: String): String {
     return result
 }
 
+fun isBox(element0: Element, element1: Element): Boolean {
+    return element0.area.intersectWith(element1.area)
+}
+
 fun Element.inner(elements: List<Element>): MutableList<Element> {
     val result = mutableListOf<Element>()
     elements.forEach { el ->
@@ -105,7 +106,7 @@ fun createContentCode(source: List<Element>, all: List<Element>, tabsDeep: Int):
                         "${tabs(tabsDeep)}Box(modifier = Modifier) {\n" +
                                 "${tabs(tabsDeep + 1)}$name(modifier = Modifier)\n" +
                                 createContentCode(element.inner, all, tabsDeep + 1) +
-                                "}\n"
+                                "${tabs(tabsDeep)}}\n"
                     }
 
                     Element.Type.Button,
@@ -114,7 +115,7 @@ fun createContentCode(source: List<Element>, all: List<Element>, tabsDeep: Int):
                     Element.Type.Column -> {
                         "${tabs(tabsDeep)}$name(modifier = Modifier) {\n" +
                                 createContentCode(element.inner, all, tabsDeep + 1) +
-                                "}\n"
+                                "${tabs(tabsDeep)}}\n"
                     }
 
                     else -> ""

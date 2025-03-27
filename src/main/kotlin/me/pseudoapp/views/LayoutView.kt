@@ -37,6 +37,7 @@ fun LayoutView(
     selectedImage: ImageBitmap?,
     elements: SnapshotStateList<Element>,
     rows: List<Element>,
+    boxes: List<Element>,
     onNewGoal: (Element) -> Unit,
     modifier: Modifier
 ) {
@@ -99,10 +100,19 @@ fun LayoutView(
 
             rows.forEach { element ->
                 drawRect(
-                    color = Color.Black,
+                    color = Color.Black.copy(alpha = 0.5f),
                     topLeft = element.area.topLeft,
                     size = element.area.size,
                     style = Stroke(width = 1f)
+                )
+            }
+
+            boxes.forEach { element ->
+                drawRect(
+                    color = Color.Magenta,
+                    topLeft = element.area.topLeft,
+                    size = element.area.size,
+                    style = Stroke(width = 3f, miter = 3f)
                 )
             }
         }
