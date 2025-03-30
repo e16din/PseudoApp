@@ -28,11 +28,27 @@ fun main() = application {
     }
 }
 
-data class Element(var area: Rect,
-                   val color: Color,
-                   val type: Type,
-                   val prompt: MutableState<String>,
-                   var inner:MutableList<Element>) {
+data class Element(
+    var area: Rect,
+    val color: Color,
+    val type: Type,
+    val prompt: MutableState<String>,
+    var inner: MutableList<Element>
+) {
+    fun isContainer(): Boolean {
+        return when (type) {
+            Type.Text,
+            Type.TextField,
+            Type.Icon,
+            Type.Coil -> false
+
+            Type.Button,
+            Type.Box,
+            Type.Row,
+            Type.Column -> true
+        }
+    }
+
     enum class Type {
         Text,
         TextField,

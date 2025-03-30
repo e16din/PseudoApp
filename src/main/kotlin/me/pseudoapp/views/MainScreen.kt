@@ -86,7 +86,7 @@ fun MainScreen() {
 
         fun updateInnerRows(source: List<Element>) {
             for (element in source) {
-                val sortedRows = sortedLines(source)
+                val sortedRows = sortedRows(source)
                 for (it in sortedRows) {
                     if (it.size < 2) {
                         continue
@@ -97,6 +97,7 @@ fun MainScreen() {
 
                     val minY = it.minBy { it.area.topLeft.y }.area.topLeft.y
                     val maxY = it.maxBy { it.area.bottomRight.y }.area.bottomRight.y
+                    println("debug: add1")
                     rows.add(
                         Element(
                             area = Rect(start.copy(y = minY), end.copy(y = maxY)),
@@ -133,6 +134,7 @@ fun MainScreen() {
 //                            elements.forEach {
 //                                it.inner.removeAll(inner)
 //                            }
+                            println("debug: add2")
                             val boxElement = Element(
                                 area = Rect(
                                     Offset(minX, minY),
@@ -152,13 +154,13 @@ fun MainScreen() {
                         }
 
                         addBoxes(
-                            sortedLines(row[j].inner)
+                            sortedRows(row[j].inner)
                         )
                     }
                 }
             }
 
-            val lines = sortedLines(elements.first().inner)
+            val lines = sortedRows(elements.first().inner)
             println("lines: ${lines}")
             addBoxes(lines)
         }
@@ -203,6 +205,7 @@ fun MainScreen() {
                         )
 
                         if (elements.isEmpty()) {
+                            println("debug: add0")
                             elements.add(
                                 Element(
                                     area = layoutRect,
