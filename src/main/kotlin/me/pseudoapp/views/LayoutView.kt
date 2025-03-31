@@ -22,23 +22,25 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.input.key.*
+import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import me.pseudoapp.*
+import me.pseudoapp.Element
+import me.pseudoapp.findContainerOf
+import me.pseudoapp.findInner
 import me.pseudoapp.other.*
+import me.pseudoapp.rootElement
+import java.util.*
 
 @Composable
 fun LayoutView(
     selectedImage: ImageBitmap?,
     elements: SnapshotStateList<Element>,
-    rows: List<Element>,
-    boxes: List<Element>,
-    onNewGoal: (Element) -> Unit,
+    onNewElement: (Element) -> Unit,
     modifier: Modifier
 ) {
 
@@ -89,51 +91,39 @@ fun LayoutView(
                 )
             }
 
-            elements.forEach { element ->
+            fun drawElementAndInner(element: Element) {
                 drawRect(
                     color = element.color,
                     topLeft = element.area.topLeft,
                     size = element.area.size,
                     style = Stroke(width = borderWidth.dp.toPx())
                 )
+
+                element.inner.forEach {
+                    drawElementAndInner(it)
+                }
             }
 
-            rows.forEach { element ->
-                drawRect(
-                    color = Color.Black.copy(alpha = 0.5f),
-                    topLeft = element.area.topLeft,
-                    size = element.area.size,
-                    style = Stroke(width = 1f)
-                )
-            }
-
-            boxes.forEach { element ->
-                drawRect(
-                    color = Color.Magenta,
-                    topLeft = element.area.topLeft,
-                    size = element.area.size,
-                    style = Stroke(width = 3f, miter = 3f)
-                )
-            }
+            drawElementAndInner(rootElement)
         }
 
-        elements.forEach { goal ->
+        elements.forEach { element ->
             val textStyle = TextStyle.Default.copy(fontSize = 8.sp)
             Box(
                 modifier = Modifier
                     .offset(
-                        x = goal.area.bottomRight.x.convertToPx().dp - (measureTextWidth(
-                            goal.type.name,
+                        x = element.area.bottomRight.x.convertToPx().dp - (measureTextWidth(
+                            element.type.name,
                             textStyle
                         ) / 2),
-                        y = goal.area.bottomRight.y.convertToPx().dp
+                        y = element.area.bottomRight.y.convertToPx().dp
                     )
                     .clip(CircleShape)
                     .background(Color.Green)
             ) {
                 Text(
                     style = textStyle,
-                    text = goal.type.name,
+                    text = element.type.name,
                     modifier = Modifier
                         .padding(horizontal = 8.dp, vertical = 2.dp)
                 )
@@ -143,7 +133,7 @@ fun LayoutView(
         fun selectElement(it: Element.Type, about: String) {
             val finalRect = Rect(startPoint!!, endPoint!!)
 
-            val element = Element(
+            val newElement = Element(
                 area = finalRect,
                 type = it,
                 prompt = mutableStateOf(about),
@@ -151,7 +141,76 @@ fun LayoutView(
                 inner = mutableListOf()
             )
 
-            onNewGoal(element)
+            val container = elements.findContainerOf(newElement)!!
+            if (container.isContainer()) {
+                container.inner.add(newElement)
+            }
+
+            if (newElement.isContainer()) {
+                val inner = newElement.findInner(elements)
+                elements.forEach {
+                    it.inner.removeAll(inner)
+                }
+                newElement.inner = inner
+            }
+
+            fun handleBoxes(container: Element, items: List<Element>) {
+                val space = 4
+
+                fun wrapBox(e: Element) {
+//                    elements.forEach {
+//                        it.inner.removeAll(listOf(newElement))
+//                    }
+                    val box = Element(
+                        area = rectOf(space, e.area, newElement.area),
+                        color = Color.Magenta,
+                        type = Element.Type.Box,
+                        prompt = mutableStateOf(""),
+                        inner = mutableListOf(e, newElement)
+                    )
+                    Collections.replaceAll(container.inner, e, box)
+                    println("container.inner(${container.inner.map { it.type }})")
+                    onNewElement(box)
+                }
+
+                for (e in items) {
+                    handleBoxes(e, e.inner)
+
+                    if (newElement.area.intersectWith(e.area)) {
+                        println("handleBoxes(${items.map { it.type }}) | new: ${newElement.type}")
+
+//                        if (e.area.contains(newElement.area)) {
+                        if (e.type == Element.Type.Box) {
+//                            elements.forEach {
+//                                it.inner.removeAll(listOf(newElement))
+//                            }
+                            e.inner.add(newElement)
+                            e.area = rectOf(space, e.area, newElement.area)
+                            break
+                        }
+
+                        if (!e.isContainer() && container.type == Element.Type.Box) {
+//                            elements.forEach {
+//                                it.inner.removeAll(listOf(newElement))
+//                            }
+                            container.inner.add(newElement)
+                            container.area = rectOf(space, container.area, newElement.area)
+
+                            break
+                        }
+//                        } else {
+                        if(!e.isContainer()) {
+                            wrapBox(e)
+                        }
+                        break
+                    }
+//                    }
+                }
+            }
+
+            handleBoxes(rootElement, rootElement.inner)
+
+            onNewElement(newElement)
 
             elementsMenuExpanded = false
 

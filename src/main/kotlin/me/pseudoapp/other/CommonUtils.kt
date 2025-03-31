@@ -62,4 +62,4 @@ object SizeObserver {
     }
 }
 
-fun Float.convertToPx(): Int = (this / SizeObserver.oneDpValue).toInt()
+fun Float.convertToPx(): Float = (this / SizeObserver.oneDpValue)

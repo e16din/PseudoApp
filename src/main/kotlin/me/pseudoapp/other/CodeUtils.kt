@@ -1,9 +1,10 @@
 package me.pseudoapp.other
 
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import me.pseudoapp.Element
+import me.pseudoapp.findContainerOf
+import me.pseudoapp.findInner
 
 
 fun createContainerCode(elements: List<Element>, name: String): String {
@@ -13,19 +14,11 @@ fun createContainerCode(elements: List<Element>, name: String): String {
     }
     val source = elements.toMutableList()
     if (source.size > 1) {
-        addContainers(source.first().inner, source)
-
-//        addRowsTo(source.first().inner, source)
-//        addColumnsTo(source.first().inner, source)
-//        addBoxesTo(source.first().inner, source)
+//        addContainers(source.first().inner, source)
     }
-
-//    val rows = sortedLines(elements.first().inner)
-//    addBoxes(rows, source)
 
     val tabsDeep = 1
     val content = createContentCode(source.first().inner, source, tabsDeep + 1)
-// todo: before add boxes
     result += "fun $name() {\n" +
             "${tabs(tabsDeep)}Column {\n" +
             "$content\n" +
@@ -35,154 +28,114 @@ fun createContainerCode(elements: List<Element>, name: String): String {
     return result
 }
 
-fun addBoxesTo(inner: MutableList<Element>, all: MutableList<Element>) {
-//    там где есть пересечения любых
-//            и там где есть перекрытие не-контейнеров
-    val lines = sortedBoxes(inner)
-    for (line in lines) {
-        if (line.size < 2) {
-            continue
-        }
-        val area = createContainerFor(line)
-        val element = Element(
-            area = area,
-            color = Color.Magenta,
-            type = Element.Type.Box,
-            prompt = mutableStateOf(""),
-            inner = line.toMutableList()
-        )
-        all.forEach {
-            it.inner.removeAll(line)
-        }
-        all.add(element)
-        println("debug1: add box!")
-
-        val container = all.findContainerOf(element)
-        container?.let {
-            container.inner.add(element)
-
-            when (container.type) {
-                Element.Type.Row -> container.inner.sortBy { it.area.topLeft.x }
-                Element.Type.Column -> container.inner.sortBy { it.area.topLeft.y }
-                else -> {}
-            }
-        }
-
-        line.forEach {
-            addBoxesTo(it.inner, all)
-        }
-    }
-}
-
-fun addColumnsTo(inner: MutableList<Element>, all: MutableList<Element>) {
-    val lines = sortedColumns(inner)
-    for (line in lines) {
-        if (line.size < 2) {
-            continue
-        }
-
-        val area = createContainerFor(line)
-        val element = Element(
-            area = area,
-            color = Color.DarkGray,
-            type = Element.Type.Column,
-            prompt = mutableStateOf(""),
-            inner = line.toMutableList()
-        )
-        all.forEach {
-            it.inner.removeAll(line)
-        }
-        all.add(element)
-        println("debug1: add column!")
-
-        val container = all.findContainerOf(element)
-        container?.let {
-            container.inner.add(element)
-
-            when (container.type) {
-                Element.Type.Row -> container.inner.sortBy { it.area.topLeft.x }
-                Element.Type.Column -> container.inner.sortBy { it.area.topLeft.y }
-                else -> {}
-            }
-        }
-
-        line.forEach {
-            addColumnsTo(it.inner, all)
-        }
-    }
-}
-
-private fun createContainerFor(line: List<Element>): Rect {
-    val startX = line.minBy { it.area.topLeft.x }.area.topLeft.x
-    val startY = line.minBy { it.area.topLeft.y }.area.topLeft.y
-    val endX = line.maxBy { it.area.bottomRight.x }.area.bottomRight.x
-    val endY = line.maxBy { it.area.bottomRight.y }.area.bottomRight.y
-    val area = Rect(
-        Offset(startX, startY),
-        Offset(endX, endY)
-    )
-    return area
-}
-
 fun addContainers(inner: MutableList<Element>, all: MutableList<Element>) {
-    val lines = sortedColumns(inner)
-    if (lines.isEmpty()) {
+    println("addContainers(${inner.map { it.type }})")
+
+    if (inner.isEmpty()) {
         return
     }
 
-    val rowInner = mutableListOf<Element>()
-    val startX = lines.first().minBy { it.area.topLeft.x }.area.topLeft.x
-    val startY = lines.first().minBy { it.area.topLeft.y }.area.topLeft.y
-    val endX = lines.last().maxBy { it.area.bottomRight.x }.area.bottomRight.x
-    val endY = lines.last().maxBy { it.area.bottomRight.y }.area.bottomRight.y
-    val rowArea = Rect(
-        Offset(startX, startY),
-        Offset(endX, endY)
-    )
-    val elementRow = Element(
-        area = rowArea,
-        color = Color.Magenta,
-        type = Element.Type.Row,
+    val rootColumnInner = mutableListOf<Element>()
+    val rootColumnArea = rectOf(inner.map { it.area })
+    val rootElementColumn = Element(
+        area = rootColumnArea,
+        color = Color.Cyan,
+        type = Element.Type.Column,
         prompt = mutableStateOf(""),
-        inner = rowInner
+        inner = rootColumnInner
     )
+    // разобьем все на строки(встретим боксы добавим),
+    // внутри разобьем все на столбцы(встретим боксы добавим),
+    // для элементов столбцов снова вызовем addContainer
+    val rows = sortedRows(inner)
+    if (rows.isEmpty()) {
+        return
+    }
 
-    for (line in lines) {
-        if (line.isEmpty()) { // if empty or single than do nothing
-            continue
-        } // else if 2 or more than add a Column
-
-        if (line.size == 1) {
-            all.forEach {
-                it.inner.removeAll(line)
-            }
-            rowInner.add(line.first())
+    for (row in rows) {
+        if (row.isEmpty()) {
             continue
         }
 
-        val columnArea = createContainerFor(line)
-        val elementColumn = Element(
-            area = columnArea,
-            color = Color.Cyan,
-            type = Element.Type.Column,
+        val columns = sortedColumns(row)
+        if (columns.isEmpty()) {
+            continue
+        }
+
+        val rowInner = mutableListOf<Element>()
+        val rowArea = rectOf(row.map { it.area })
+        val elementRow = Element(
+            area = rowArea,
+            color = Color.Magenta,
+            type = Element.Type.Row,
             prompt = mutableStateOf(""),
-            inner = line.toMutableList()
+            inner = rowInner
         )
-        all.forEach {
-            it.inner.removeAll(line)
-        }
-        rowInner.add(elementColumn)
-        println("debug1: add row!")
 
-        line.forEach {
-            addContainers(it.inner, all)
+        for (column in columns) {
+            if (column.isEmpty()) {
+                continue
+            }
+
+            if (column.size == 1) {
+                removeFromAllInner(all, column)
+//                all.forEach { element ->
+//                    element.inner.removeAll(column)
+//                }
+                rowInner.add(column.first())
+                println("debug1: add single column!")
+
+                column.forEach {
+                    val nextInner = it.findInner(all)
+                    addContainers(nextInner, inner)
+                }
+                continue
+            }
+
+            val columnArea = rectOf(column.map { it.area })
+            val elementColumn = Element(
+                area = columnArea,
+                color = Color.Cyan,
+                type = Element.Type.Column,
+                prompt = mutableStateOf(""),
+                inner = column.toMutableList()
+            )
+            all.forEach {
+                it.inner.removeAll(column)
+            }
+            rowInner.add(elementColumn)
+            println("debug1: add column!")
+
+            column.forEach {
+                val nextInner = it.findInner(all)
+                addContainers(nextInner, inner)
+            }
+        }
+
+        removeFromAllInner(all, elementRow.inner)
+
+        all.add(elementRow)
+        rootColumnInner.add(elementRow)
+        println("debug1: add row!")
+        val container = all.findContainerOf(elementRow)
+        container?.let {
+            container.inner.add(elementRow)
+
+            when (container.type) {
+                Element.Type.Row -> container.inner.sortBy { it.area.topLeft.x }
+                Element.Type.Column -> container.inner.sortBy { it.area.topLeft.y }
+                else -> {}
+            }
         }
     }
 
-    all.add(elementRow)
-    val container = all.findContainerOf(elementRow)
+    removeFromAllInner(all, rootColumnInner)
+    all.add(rootElementColumn)
+
+    println("debug1: add root column!")
+    val container = all.findContainerOf(rootElementColumn)
     container?.let {
-        container.inner.add(elementRow)
+        container.inner.add(rootElementColumn)
 
         when (container.type) {
             Element.Type.Row -> container.inner.sortBy { it.area.topLeft.x }
@@ -190,92 +143,36 @@ fun addContainers(inner: MutableList<Element>, all: MutableList<Element>) {
             else -> {}
         }
     }
+//    }
 }
 
-fun addRowsTo(inner: MutableList<Element>, all: MutableList<Element>) {
-    val lines = sortedRows(inner)
-    for (line in lines) {
-        if (line.size < 2) {
-            continue
-        }
-
-//        if(line[])
-
-        val area = createContainerFor(line)
-        val element = Element(
-            area = area,
-            color = Color.Cyan,
-            type = Element.Type.Row,
-            prompt = mutableStateOf(""),
-            inner = line.toMutableList()
-        )
-        all.forEach {
-            it.inner.removeAll(line)
-        }
-        all.add(element)
-        println("debug1: add row!")
-
-        val container = all.findContainerOf(element)
-        container?.let {
-            container.inner.add(element)
-
-            when (container.type) {
-                Element.Type.Row -> container.inner.sortBy { it.area.topLeft.x }
-                Element.Type.Column -> container.inner.sortBy { it.area.topLeft.y }
-                else -> {}
-            }
-        }
-
-        line.forEach {
-            addRowsTo(it.inner, all)
-        }
+private fun removeFromAllInner(
+    all: MutableList<Element>,
+    removed: List<Element>
+) {
+    all.forEach {
+        removeFromAllInner(it.inner, removed)
+        it.inner.removeAll(removed)
     }
 }
 
-private fun List<Element>.findContainerOf(
-    element: Element
-): Element? {
-    println("debug: ${this.size}")
-    println("debug: ${this}")
-    return if (this.size <= 2) {
-        null
-    } else {
-        val filtered = this.filter { it.area.contains(element.area) && it.isContainer() }
-        if (filtered.isEmpty()) {
-            return null
-        } else {
-            filtered.minBy {
-                it.area.topLeft.x - element.area.topLeft.x
-            }
-        }
-    }
-}
+
+
 
 fun isBox(element0: Element, element1: Element): Boolean {
     return element0.area.intersectWith(element1.area)
 }
 
-fun Element.inner(elements: List<Element>): MutableList<Element> {
-    val result = mutableListOf<Element>()
-    elements.forEach { el ->
-        if (this.area.contains(el.area) && !result.any { it.area.contains(el.area) }) {
-            result.add(el)
-        }
-    }
-    return result
-}
-
-fun createContentCode(source: List<Element>, all: List<Element>, tabsDeep: Int): String {
+fun createContentCode(inner: List<Element>, all: List<Element>, tabsDeep: Int): String {
+//    println("createContentCode(${inner.map { it.type }})")
     var result = ""
 
-    if (source.isEmpty()) {
+    if (inner.isEmpty()) {
         return result
     }
 
-    val rows = sortedRows(source)
 
-
-    rows.forEachIndexed { i, row ->
+    inner.forEach { element ->
 
         fun getCode(element: Element, tabsDeep: Int): String {
             val name = element.type.name
@@ -308,26 +205,26 @@ fun createContentCode(source: List<Element>, all: List<Element>, tabsDeep: Int):
             }
         }
 
-        if (row.size < 2) {
-            val element = row.first()
-            println("generation1: ${element}")
-            result += getCode(element, tabsDeep)
+        result += getCode(element, tabsDeep)
 
-        } else { // Row
-//            if (row.size == 2 && row[0].area.intersectWith(row[1].area)) {
-            for (element in row) {
-                println("generation2: ${element}")
-                result += getCode(element, tabsDeep + 1)
-            }
-//            } else {
-//                result += "${tabs(tabsDeep)}Row(modifier = Modifier) {\n"
-//                for (element in row) {
-//                    println("generation3: ${element}")
-//                    result += getCode(element, tabsDeep + 1)
-//                }
-//                result += "${tabs(tabsDeep)}}\n"
+//        if (row.size < 2) {
+//            val element = row.first()
+//
+//
+//        } else { // Row
+////            if (row.size == 2 && row[0].area.intersectWith(row[1].area)) {
+//            for (element in row) {
+//                result += getCode(element, tabsDeep + 1)
 //            }
-        }
+////            } else {
+////                result += "${tabs(tabsDeep)}Row(modifier = Modifier) {\n"
+////                for (element in row) {
+////                    println("generation3: ${element}")
+////                    result += getCode(element, tabsDeep + 1)
+////                }
+////                result += "${tabs(tabsDeep)}}\n"
+////            }
+//        }
     }
 
     return result
@@ -365,8 +262,9 @@ fun sortedRows(source: List<Element>): List<List<Element>> {
 
     while (content.isNotEmpty()) {
         val min = content.minBy { it.area.topLeft.y }
-        val row = content.filter { it.area.topLeft.y < min.area.bottomRight.y }
-            .sortedBy { it.area.topLeft.x }
+        val row = content.filter {
+            it.area.topLeft.y < min.area.bottomRight.y
+        }.sortedBy { it.area.topLeft.x }
         content.removeAll(row)
         result.add(row.toMutableList())
     }
@@ -380,30 +278,10 @@ fun sortedColumns(source: List<Element>): List<List<Element>> {
 
     while (content.isNotEmpty()) {
         val min = content.minBy { it.area.topLeft.x }
-        var exclude = emptyList<Element>()
-        if(content.size>=2) {
-            val filtered = content.filter { it.area.topLeft.x > min.area.bottomRight.x }
-            if(filtered.isNotEmpty()) {
-                val min2 = filtered.minBy { it.area.topLeft.x }
-                println("debug3: ${min.area}")
-                println("debug31: ${min2.area}")
-
-                exclude = content.filter {
-                    it.area.bottomRight.x > min2.area.topLeft.x
-                }
-            }
-        }
-
         val column = content.filter {
             it.area.topLeft.x < min.area.bottomRight.x
         }.sortedBy { it.area.topLeft.y }.toMutableList()
-
-
         content.removeAll(column)
-
-        column.removeAll(exclude)
-        println("debug32: ${exclude.map { it.area }}")
-        println("debug33: ${column.map { it.area }}")
         result.add(column.toMutableList())
     }
 
