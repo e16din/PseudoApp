@@ -158,9 +158,9 @@ fun LayoutView(
                 val space = 4
 
                 fun wrapBox(e: Element) {
-//                    elements.forEach {
-//                        it.inner.removeAll(listOf(newElement))
-//                    }
+                    elements.forEach {
+                        it.inner.removeAll(listOf(newElement))
+                    }
                     val box = Element(
                         area = rectOf(space, e.area, newElement.area),
                         color = Color.Magenta,
@@ -174,25 +174,25 @@ fun LayoutView(
                 }
 
                 for (e in items) {
-                    handleBoxes(e, e.inner)
+                    handleBoxes(e, e.inner.toList())
 
                     if (newElement.area.intersectWith(e.area)) {
                         println("handleBoxes(${items.map { it.type }}) | new: ${newElement.type}")
 
 //                        if (e.area.contains(newElement.area)) {
                         if (e.type == Element.Type.Box) {
-//                            elements.forEach {
-//                                it.inner.removeAll(listOf(newElement))
-//                            }
+                            elements.forEach {
+                                it.inner.removeAll(listOf(newElement))
+                            }
                             e.inner.add(newElement)
                             e.area = rectOf(space, e.area, newElement.area)
                             break
                         }
 
                         if (!e.isContainer() && container.type == Element.Type.Box) {
-//                            elements.forEach {
-//                                it.inner.removeAll(listOf(newElement))
-//                            }
+                            elements.forEach {
+                                it.inner.removeAll(listOf(newElement))
+                            }
                             container.inner.add(newElement)
                             container.area = rectOf(space, container.area, newElement.area)
 
@@ -208,7 +208,7 @@ fun LayoutView(
                 }
             }
 
-            handleBoxes(rootElement, rootElement.inner)
+            handleBoxes(rootElement, rootElement.inner.toList())
 
             onNewElement(newElement)
 
