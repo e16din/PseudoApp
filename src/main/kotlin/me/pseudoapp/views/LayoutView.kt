@@ -21,6 +21,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.pointer.pointerInput
@@ -30,11 +31,12 @@ import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import me.pseudoapp.Element
-import me.pseudoapp.findContainerOf
-import me.pseudoapp.findInner
-import me.pseudoapp.other.*
+import me.pseudoapp.findContainerRectOf
+import me.pseudoapp.other.Rect
+import me.pseudoapp.other.convertToPx
+import me.pseudoapp.other.measureTextWidth
+import me.pseudoapp.other.rectOf
 import me.pseudoapp.rootElement
-import java.util.*
 
 @Composable
 fun LayoutView(
@@ -92,12 +94,20 @@ fun LayoutView(
             }
 
             fun drawElementAndInner(element: Element) {
+                val isContainer = element.isContainer()
                 drawRect(
                     color = element.color,
                     topLeft = element.area.topLeft,
                     size = element.area.size,
-                    style = Stroke(width = borderWidth.dp.toPx())
-                )
+                    style = Stroke(
+                        width = if (isContainer) 1f else borderWidth.dp.toPx(),
+                        pathEffect = if (isContainer)
+                            PathEffect.dashPathEffect(floatArrayOf(10f, 5f), phase = 0f)
+                        else
+                            null
+                    ),
+
+                    )
 
                 element.inner.forEach {
                     drawElementAndInner(it)
@@ -141,76 +151,139 @@ fun LayoutView(
                 inner = mutableListOf()
             )
 
-            val container = elements.findContainerOf(newElement)!!
-            if (container.isContainer()) {
-                container.inner.add(newElement)
-            }
+            val container = elements.findContainerRectOf(newElement)!!
+//            if (container.isContainer()) {
+//                container.inner.add(newElement)
+//            }
+            val containerInner = container.inner
+            if (containerInner.isEmpty()) {
+                selectedColor = nextColor()
+                val newBox = Element(
+                    area = rectOf(10, finalRect),
+                    type = Element.Type.Box,
+                    prompt = mutableStateOf(about),
+                    color = selectedColor,
+                    inner = mutableListOf()
+                )
 
-            if (newElement.isContainer()) {
-                val inner = newElement.findInner(elements)
-                elements.forEach {
-                    it.inner.removeAll(inner)
-                }
-                newElement.inner = inner
-            }
+                selectedColor = nextColor()
+                val newColumn = Element(
+                    area = rectOf(7, finalRect),
+                    type = Element.Type.Column,
+                    prompt = mutableStateOf(about),
+                    color = selectedColor,
+                    inner = mutableListOf()
+                )
 
-            fun handleBoxes(container: Element, items: List<Element>) {
-                val space = 4
+                selectedColor = nextColor()
+                val newRow = Element(
+                    area = rectOf(4, finalRect),
+                    type = Element.Type.Row,
+                    prompt = mutableStateOf(about),
+                    color = selectedColor,
+                    inner = mutableListOf()
+                )
 
-                fun wrapBox(e: Element) {
-                    elements.forEach {
-                        it.inner.removeAll(listOf(newElement))
-                    }
-                    val box = Element(
-                        area = rectOf(space, e.area, newElement.area),
-                        color = Color.Magenta,
-                        type = Element.Type.Box,
-                        prompt = mutableStateOf(""),
-                        inner = mutableListOf(e, newElement)
-                    )
-                    Collections.replaceAll(container.inner, e, box)
-                    println("container.inner(${container.inner.map { it.type }})")
-                    onNewElement(box)
-                }
+                container.inner.add(newBox)
+                onNewElement(newBox)
 
-                for (e in items) {
-                    handleBoxes(e, e.inner.toList())
+                newBox.inner.add(newColumn)
+                onNewElement(newColumn)
 
-                    if (newElement.area.intersectWith(e.area)) {
-                        println("handleBoxes(${items.map { it.type }}) | new: ${newElement.type}")
+                newColumn.inner.add(newRow)
+                onNewElement(newRow)
 
-//                        if (e.area.contains(newElement.area)) {
-                        if (e.type == Element.Type.Box) {
-                            elements.forEach {
-                                it.inner.removeAll(listOf(newElement))
-                            }
-                            e.inner.add(newElement)
-                            e.area = rectOf(space, e.area, newElement.area)
+                newRow.inner.add((newElement))
+                onNewElement(newElement)
+
+            } else {
+                for (box in containerInner) {
+                    val column = box.inner.first()
+                    val row = box.inner.first().inner.first()
+
+                    for (e in row.inner) {
+                        if (newElement.area.topLeft.x > e.area.bottomRight.x
+                            && newElement.area.bottomRight.y > e.area.topLeft.y
+                            && newElement.area.topLeft.y < e.area.bottomRight.y
+                        ) {
+                            val rects = row.inner.map { it.area } + newElement.area
+                            row.area = rectOf(4, rects)
+                            column.area = rectOf(7, rects)
+                            box.area = rectOf(10, rects)
+
+                            row.inner.add(newElement)
+                            onNewElement(newElement)
                             break
-                        }
 
-                        if (!e.isContainer() && container.type == Element.Type.Box) {
-                            elements.forEach {
-                                it.inner.removeAll(listOf(newElement))
+                        } else if (newElement.area.topLeft.y > e.area.bottomRight.y
+                            && newElement.area.topLeft.x < e.area.bottomRight.x
+                        ) {
+                            var handled = false
+                            for (r in column.inner) {
+                                if (newElement.area.topLeft.x > r.area.bottomRight.x
+                                    && newElement.area.bottomRight.y > r.area.topLeft.y
+                                    && newElement.area.topLeft.y < r.area.bottomRight.y
+                                ) {
+                                    handled = true
+                                    r.inner.add(newElement)
+                                    r.area = rectOf(
+                                        4,
+                                        r.inner.map { it.area } + newElement.area
+                                    )
+                                    column.area = rectOf(
+                                        7,
+                                        column.inner.map { it.area } + newElement.area
+                                    )
+                                    box.area = rectOf(
+                                        10,
+                                        box.inner.map { it.area } + newElement.area
+                                    )
+                                    onNewElement(newElement)
+                                    break
+                                }
                             }
-                            container.inner.add(newElement)
-                            container.area = rectOf(space, container.area, newElement.area)
+                            if (handled) {
+                                break
+                            } else {
+                                selectedColor = nextColor()
+                                val newRow = Element(
+                                    area = rectOf(4, newElement.area),
+                                    type = Element.Type.Row,
+                                    prompt = mutableStateOf(about),
+                                    color = selectedColor,
+                                    inner = mutableListOf()
+                                )
 
-                            break
+                                column.area = rectOf(
+                                    7,
+                                    column.inner.map { it.area } + newElement.area
+                                )
+                                box.area = rectOf(
+                                    10,
+                                    box.inner.map { it.area } + newElement.area
+                                )
+
+                                newRow.inner.add(newElement)
+                                column.inner.add(newRow)
+                                onNewElement(newRow)
+                                onNewElement(newElement)
+                                break
+
+                            }
                         }
-//                        } else {
-                        if(!e.isContainer()) {
-                            wrapBox(e)
-                        }
-                        break
                     }
-//                    }
                 }
             }
 
-            handleBoxes(rootElement, rootElement.inner.toList())
 
-            onNewElement(newElement)
+//            if (newElement.isContainer()) {
+//                val inner = newElement.findInner(elements)
+//                elements.forEach {
+//                    it.inner.removeAll(inner)
+//                }
+//                newElement.inner = inner
+//            }
+
 
             elementsMenuExpanded = false
 

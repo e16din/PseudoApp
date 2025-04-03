@@ -60,7 +60,7 @@ val rootElement = Element(
     inner = mutableListOf()
 )
 
-fun List<Element>.findContainerOf(
+fun List<Element>.findContainerRectOf(
     element: Element
 ): Element? {
     val filtered = this.filter { it.area.contains(element.area) && it.isContainer() }

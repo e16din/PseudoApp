@@ -85,7 +85,6 @@ fun MainScreen() {
                 selectedImage,
                 elements,
                 onNewElement = { element ->
-                    selectedColor = nextColor()
                     elements.add(element)
 
                     updated.value = Unit

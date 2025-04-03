@@ -3,7 +3,7 @@ package me.pseudoapp.other
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.graphics.Color
 import me.pseudoapp.Element
-import me.pseudoapp.findContainerOf
+import me.pseudoapp.findContainerRectOf
 import me.pseudoapp.findInner
 
 
@@ -36,7 +36,7 @@ fun addContainers(inner: MutableList<Element>, all: MutableList<Element>) {
     }
 
     val rootColumnInner = mutableListOf<Element>()
-    val rootColumnArea = rectOf(inner.map { it.area })
+    val rootColumnArea = rectOf(list = inner.map { it.area })
     val rootElementColumn = Element(
         area = rootColumnArea,
         color = Color.Cyan,
@@ -63,7 +63,7 @@ fun addContainers(inner: MutableList<Element>, all: MutableList<Element>) {
         }
 
         val rowInner = mutableListOf<Element>()
-        val rowArea = rectOf(row.map { it.area })
+        val rowArea = rectOf(list = row.map { it.area })
         val elementRow = Element(
             area = rowArea,
             color = Color.Magenta,
@@ -92,7 +92,7 @@ fun addContainers(inner: MutableList<Element>, all: MutableList<Element>) {
                 continue
             }
 
-            val columnArea = rectOf(column.map { it.area })
+            val columnArea = rectOf(list = column.map { it.area })
             val elementColumn = Element(
                 area = columnArea,
                 color = Color.Cyan,
@@ -117,7 +117,7 @@ fun addContainers(inner: MutableList<Element>, all: MutableList<Element>) {
         all.add(elementRow)
         rootColumnInner.add(elementRow)
         println("debug1: add row!")
-        val container = all.findContainerOf(elementRow)
+        val container = all.findContainerRectOf(elementRow)
         container?.let {
             container.inner.add(elementRow)
 
@@ -133,7 +133,7 @@ fun addContainers(inner: MutableList<Element>, all: MutableList<Element>) {
     all.add(rootElementColumn)
 
     println("debug1: add root column!")
-    val container = all.findContainerOf(rootElementColumn)
+    val container = all.findContainerRectOf(rootElementColumn)
     container?.let {
         container.inner.add(rootElementColumn)
 

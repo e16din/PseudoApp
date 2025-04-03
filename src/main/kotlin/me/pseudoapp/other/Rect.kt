@@ -52,14 +52,14 @@ fun Rect.isInnerOf(area: Rect): Boolean {
             && area.bottomRight.y > this.bottomRight.y
 }
 
-fun rectOf(list: List<Rect>): Rect {
+fun rectOf(space: Int = 0, list: List<Rect>): Rect {
     val startX = list.minBy { it.topLeft.x }.topLeft.x
     val startY = list.minBy { it.topLeft.y }.topLeft.y
     val endX = list.maxBy { it.bottomRight.x }.bottomRight.x
     val endY = list.maxBy { it.bottomRight.y }.bottomRight.y
     val area = Rect(
-        Offset(startX, startY),
-        Offset(endX, endY)
+        Offset(startX - space, startY - space),
+        Offset(endX + space, endY + space)
     )
     return area
 }
