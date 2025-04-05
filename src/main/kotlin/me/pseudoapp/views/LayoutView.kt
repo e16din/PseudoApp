@@ -53,6 +53,7 @@ fun LayoutView(
     var elementsMenuExpanded by remember { mutableStateOf(false) }
 
 
+
     Box(modifier = modifier.fillMaxSize()) {
         Canvas(modifier = Modifier.fillMaxSize().pointerInput(Unit) {
             detectDragGestures(

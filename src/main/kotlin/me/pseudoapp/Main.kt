@@ -68,7 +68,7 @@ fun List<Element>.findContainerRectOf(
         null
     } else {
         filtered.minBy {
-             element.area.topLeft.x - it.area.topLeft.x
+            element.area.topLeft.x - it.area.topLeft.x
         }
     }
 }
@@ -103,6 +103,21 @@ data class Element(
             Type.LazyColumn,
             Type.Row,
             Type.Column -> true
+        }
+    }
+
+    fun removeInner(element: Element) {
+        if (inner.contains(element)) {
+            inner.remove(element)
+            return
+        }
+
+
+        var i = 0
+        while (i < inner.size) {
+            val it = inner[i]
+            it.removeInner(element)
+            i++
         }
     }
 
