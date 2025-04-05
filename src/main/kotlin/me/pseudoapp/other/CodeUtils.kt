@@ -37,10 +37,13 @@ fun createContentCode(inner: List<Element>, all: List<Element>, tabsDeep: Int): 
             } else {
                 "${tabs(tabsDeep)}$name(modifier = Modifier) {\n" +
                         createContentCode(element.inner, all, tabsDeep + 1) +
-                        "${tabs(tabsDeep)}}\n"
+                        "\n"
             }
         }
 
+        if (element.prompt.value.isNotEmpty()) {
+            result += "${tabs(tabsDeep)}// ${element.prompt.value}\n"
+        }
         result += getCode(element, tabsDeep)
     }
 
