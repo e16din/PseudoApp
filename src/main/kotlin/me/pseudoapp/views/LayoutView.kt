@@ -230,7 +230,9 @@ fun LayoutView(
                     Element.Type.Button -> "Button" //"ClickTo"
                     Element.Type.TextField -> "TextField" //"InputText"
                     Element.Type.Column -> "Column" //"SelectItem"
+                    Element.Type.LazyColumn -> "LazyColumn" //"SelectItem"
                     Element.Type.Row -> "Row" //"SelectItem"
+                    Element.Type.LazyRow -> "LazyRow" //"SelectItem"
                     Element.Type.Text -> "Text" //"LookAtText"
                     Element.Type.Icon -> "Icon" //"LookAtImage"
                     Element.Type.Coil -> "Coil" //"LookAtImage"
@@ -249,7 +251,7 @@ fun LayoutView(
     }
 }
 
-const val borderWidth = 4f
+const val borderWidth = 2f
 
 private val colors = listOf(
     Color(0xFFF44336), // Красный (Red)

@@ -99,6 +99,8 @@ data class Element(
 
             Type.Button,
             Type.Box,
+            Type.LazyRow,
+            Type.LazyColumn,
             Type.Row,
             Type.Column -> true
         }
@@ -111,6 +113,8 @@ data class Element(
         Coil,
         Button,
         Box,
+        LazyRow,
+        LazyColumn,
         Row,
         Column
     }
