@@ -32,10 +32,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import me.pseudoapp.Element
 import me.pseudoapp.findContainerRectOf
+import me.pseudoapp.findInner
 import me.pseudoapp.other.Rect
 import me.pseudoapp.other.convertToPx
 import me.pseudoapp.other.measureTextWidth
-import me.pseudoapp.other.rectOf
 import me.pseudoapp.rootElement
 
 @Composable
@@ -151,139 +151,37 @@ fun LayoutView(
                 inner = mutableListOf()
             )
 
-            val container = elements.findContainerRectOf(newElement)!!
-//            if (container.isContainer()) {
-//                container.inner.add(newElement)
-//            }
-            val containerInner = container.inner
-            if (containerInner.isEmpty()) {
-                selectedColor = nextColor()
-                val newBox = Element(
-                    area = rectOf(10, finalRect),
-                    type = Element.Type.Box,
-                    prompt = mutableStateOf(about),
-                    color = selectedColor,
-                    inner = mutableListOf()
-                )
-
-                selectedColor = nextColor()
-                val newColumn = Element(
-                    area = rectOf(7, finalRect),
-                    type = Element.Type.Column,
-                    prompt = mutableStateOf(about),
-                    color = selectedColor,
-                    inner = mutableListOf()
-                )
-
-                selectedColor = nextColor()
-                val newRow = Element(
-                    area = rectOf(4, finalRect),
-                    type = Element.Type.Row,
-                    prompt = mutableStateOf(about),
-                    color = selectedColor,
-                    inner = mutableListOf()
-                )
-
-                container.inner.add(newBox)
-                onNewElement(newBox)
-
-                newBox.inner.add(newColumn)
-                onNewElement(newColumn)
-
-                newColumn.inner.add(newRow)
-                onNewElement(newRow)
-
-                newRow.inner.add((newElement))
-                onNewElement(newElement)
-
-            } else {
-                for (box in containerInner) {
-                    val column = box.inner.first()
-                    val row = box.inner.first().inner.first()
-
-                    for (e in row.inner) {
-                        if (newElement.area.topLeft.x > e.area.bottomRight.x
-                            && newElement.area.bottomRight.y > e.area.topLeft.y
-                            && newElement.area.topLeft.y < e.area.bottomRight.y
-                        ) {
-                            val rects = row.inner.map { it.area } + newElement.area
-                            row.area = rectOf(4, rects)
-                            column.area = rectOf(7, rects)
-                            box.area = rectOf(10, rects)
-
-                            row.inner.add(newElement)
-                            onNewElement(newElement)
-                            break
-
-                        } else if (newElement.area.topLeft.y > e.area.bottomRight.y
-                            && newElement.area.topLeft.x < e.area.bottomRight.x
-                        ) {
-                            var handled = false
-                            for (r in column.inner) {
-                                if (newElement.area.topLeft.x > r.area.bottomRight.x
-                                    && newElement.area.bottomRight.y > r.area.topLeft.y
-                                    && newElement.area.topLeft.y < r.area.bottomRight.y
-                                ) {
-                                    handled = true
-                                    r.inner.add(newElement)
-                                    r.area = rectOf(
-                                        4,
-                                        r.inner.map { it.area } + newElement.area
-                                    )
-                                    column.area = rectOf(
-                                        7,
-                                        column.inner.map { it.area } + newElement.area
-                                    )
-                                    box.area = rectOf(
-                                        10,
-                                        box.inner.map { it.area } + newElement.area
-                                    )
-                                    onNewElement(newElement)
-                                    break
-                                }
-                            }
-                            if (handled) {
-                                break
-                            } else {
-                                selectedColor = nextColor()
-                                val newRow = Element(
-                                    area = rectOf(4, newElement.area),
-                                    type = Element.Type.Row,
-                                    prompt = mutableStateOf(about),
-                                    color = selectedColor,
-                                    inner = mutableListOf()
-                                )
-
-                                column.area = rectOf(
-                                    7,
-                                    column.inner.map { it.area } + newElement.area
-                                )
-                                box.area = rectOf(
-                                    10,
-                                    box.inner.map { it.area } + newElement.area
-                                )
-
-                                newRow.inner.add(newElement)
-                                column.inner.add(newRow)
-                                onNewElement(newRow)
-                                onNewElement(newElement)
-                                break
-
-                            }
-                        }
+            fun sortRowColumnInner(container: Element) {
+                when (container.type) {
+                    Element.Type.Row -> {
+                        container.inner.sortBy { it.area.topLeft.x }
                     }
+                    Element.Type.Column -> {
+                        container.inner.sortBy { it.area.topLeft.y }
+                    }
+                    else -> {}
                 }
             }
 
+            val container = elements.findContainerRectOf(newElement)!!
+            println("container: ${container.type}")
+            if (container.isContainer()) {
+                container.inner.add(newElement)
+                sortRowColumnInner(container)
+            }
 
-//            if (newElement.isContainer()) {
-//                val inner = newElement.findInner(elements)
-//                elements.forEach {
-//                    it.inner.removeAll(inner)
-//                }
-//                newElement.inner = inner
-//            }
+            if (newElement.isContainer()) {
+                val inner = newElement.findInner(container.inner)
+                container.inner.forEach {
+                    it.inner.removeAll(inner)
+                }
+                container.inner.removeAll(inner)
+                newElement.inner = inner
+                sortRowColumnInner(container)
+            }
 
+            onNewElement(newElement)
+            selectedColor = nextColor()
 
             elementsMenuExpanded = false
 

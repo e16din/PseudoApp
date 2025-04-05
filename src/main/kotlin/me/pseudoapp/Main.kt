@@ -68,24 +68,16 @@ fun List<Element>.findContainerRectOf(
         null
     } else {
         filtered.minBy {
-            it.area.topLeft.x - element.area.topLeft.x
+             element.area.topLeft.x - it.area.topLeft.x
         }
     }
 }
 
-fun Element.findInner(elements: List<Element>, all: Boolean = false): MutableList<Element> {
+fun Element.findInner(elements: List<Element>): MutableList<Element> {
     val result = mutableListOf<Element>()
     elements.forEach { el ->
         if (this.area.contains(el.area)) {
             result.add(el)
-        }
-    }
-    if (!all) {
-        var i = 0
-        while (i < result.size - 1) {
-            val element = result[i]
-            result.removeAll(element.findInner(result))
-            i++
         }
     }
     return result
