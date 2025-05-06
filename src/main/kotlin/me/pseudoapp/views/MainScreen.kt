@@ -1,6 +1,5 @@
 package me.pseudoapp.views
 
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.Button
@@ -11,58 +10,38 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.input.key.*
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.isCtrlPressed
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.unit.dp
 import me.pseudoapp.Element
-import me.pseudoapp.View
-import me.pseudoapp.other.createContainerCode
 import me.pseudoapp.other.pickImage
-import me.pseudoapp.rootElement
 
-@OptIn(ExperimentalFoundationApi::class)
+
 @Composable
 fun MainScreen() {
     var selectedImage by remember { mutableStateOf<ImageBitmap?>(null) }
-    val elements = remember { mutableStateListOf(rootElement) }
-    val undoElements = remember { mutableStateListOf<Element>() }
-
+    val elements = remember { mutableStateListOf<Element>() }
+//    val undoElements = remember { mutableStateListOf<Element>() }
     val requester = remember { FocusRequester() }
-    val selectedView = remember { View("MainView") }
+    var ctrlPressed = remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        requester.requestFocus()
+    }
 
     Column(
+        Modifier
+            .focusable()
+            .focusRequester(requester)
+            .onKeyEvent { keyEvent ->
+                ctrlPressed.value = keyEvent.isCtrlPressed
+                        && keyEvent.type == KeyEventType.KeyDown
 
-        Modifier.onKeyEvent { keyEvent ->
-            if (keyEvent.key == Key.Z
-                && keyEvent.isShiftPressed
-                && keyEvent.isCtrlPressed
-                && keyEvent.type == KeyEventType.KeyUp
-            ) {
-                println("Ctrl + Shifrt + Z")
-//                if (undoElements.isNotEmpty()) {
-//                    elements.add(undoElements.last())
-//                    updated.value = Unit
-//                    undoElements.removeAt(undoElements.size - 1)
-                      // todo: update rootElement
-//                }
-                return@onKeyEvent true
-
-            } else if (keyEvent.key == Key.Z
-                && keyEvent.isCtrlPressed
-                && keyEvent.type == KeyEventType.KeyUp
-            ) {
-                println("Ctrl + Z")
-                if (elements.isNotEmpty()) {
-                    val last = elements.last()
-//                    undoElements.add(removed)
-                    elements.remove(last)
-                    rootElement.removeInner(last)
-                }
+                println("ctrlPressed: $ctrlPressed")
                 return@onKeyEvent true
             }
-            false
-        }
-            .focusRequester(requester)
-            .focusable()
     ) {
         Button(onClick = {
             pickImage {
@@ -76,29 +55,30 @@ fun MainScreen() {
         }
 
         Row {
-            LayoutView(
-                selectedImage,
-                elements,
-                onNewElement = { element ->
-                    elements.add(element)
-                    requester.requestFocus()
-                },
-                modifier = Modifier.weight(1f)
-                    .padding(6.dp)
-            )
+            Box(
+                Modifier.weight(1f)
+                    .padding(12.dp)
+            ) {
+                LayoutView(
+                    ctrlPressed,
+                    selectedImage,
+                    elements,
+                    onNewElement = { element ->
 
-            Card {
-                ResultView(
-                    createContainerCode(elements, selectedView.name)
+                    },
+                    modifier = Modifier
                 )
+            }
+
+            Card(Modifier.weight(1f)) {
+                Column(Modifier.fillMaxSize()) {
+
+                }
             }
 
 
         }
     }
 
-    LaunchedEffect(Unit) {
-        requester.requestFocus()
-    }
 }
 

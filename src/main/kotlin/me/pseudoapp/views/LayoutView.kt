@@ -5,41 +5,36 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.DropdownMenu
-import androidx.compose.material.DropdownMenuItem
 import androidx.compose.material.Text
-import androidx.compose.material.TextField
 import androidx.compose.runtime.*
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import me.pseudoapp.Element
-import me.pseudoapp.findContainerRectOf
-import me.pseudoapp.findInner
-import me.pseudoapp.other.Rect
-import me.pseudoapp.other.convertToPx
-import me.pseudoapp.other.measureTextWidth
-import me.pseudoapp.rootElement
+import kotlin.math.abs
+import kotlin.math.max
+import kotlin.math.min
+
 
 @Composable
 fun LayoutView(
+    ctrlPressed: MutableState<Boolean>,
     selectedImage: ImageBitmap?,
     elements: SnapshotStateList<Element>,
     onNewElement: (Element) -> Unit,
@@ -48,211 +43,151 @@ fun LayoutView(
 
     var startPoint by remember { mutableStateOf<Offset?>(null) }
     var endPoint by remember { mutableStateOf<Offset?>(null) }
-    val dragRect = remember { Rect(Offset.Zero, Offset.Zero) }
 
-    var elementsMenuExpanded by remember { mutableStateOf(false) }
+    var dragEnd by remember { mutableStateOf(false) }
+    var currentColor by remember { mutableStateOf(nextColor()) }
 
+    LaunchedEffect(dragEnd) {
+        if (!dragEnd) {
+            return@LaunchedEffect
+        }
 
-
-    Box(modifier = modifier.fillMaxSize()) {
-        Canvas(modifier = Modifier.fillMaxSize().pointerInput(Unit) {
-            detectDragGestures(
-                onDragStart = { offset ->
-                    startPoint = offset
-                    println("onDragStart")
-                    println("$startPoint")
-                },
-                onDrag = { change, dragAmount ->
-                    change.consume()
-
-                    startPoint?.let { start ->
-                        endPoint = if (endPoint == null) {
-                            start + dragAmount
-                        } else {
-                            endPoint!! + dragAmount
-                        }
-                    }
-                },
-                onDragEnd = {
-                    elementsMenuExpanded = true
-                }
+        elements.add(
+            Element(
+                name = "CircleArea1",
+                value = "",
+                area = Rect(
+                    Offset(
+                        min(startPoint!!.x, endPoint!!.x),
+                        min(startPoint!!.y, endPoint!!.y)
+                    ),
+                    Offset(
+                        max(startPoint!!.x, endPoint!!.x),
+                        max(startPoint!!.y, endPoint!!.y)
+                    )
+                ),
+                color = currentColor,
+                isCircle = !ctrlPressed.value
             )
-        }) {
+        )
+        startPoint = null
+        endPoint = null
+        dragEnd = false
+        currentColor = nextColor()
+    }
+
+    var rootRect by remember { mutableStateOf(Rect(Offset.Zero, Offset.Zero)) }
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .onGloballyPositioned { coordinates ->
+                val topLeft = coordinates.positionInParent()
+                rootRect = Rect(
+                    topLeft,
+                    Offset(
+                        topLeft.x + coordinates.size.width.toFloat(),
+                        topLeft.y + coordinates.size.height.toFloat()
+                    )
+                )
+            }
+
+    ) {
+
+        Canvas(
+            modifier = Modifier.fillMaxSize()
+                .pointerInput(Unit) {
+                    detectDragGestures(
+                        onDragStart = { offset ->
+//                            requester.requestFocus()
+
+                            startPoint = offset
+                            println("onDragStart")
+                            println("$startPoint")
+                        },
+                        onDrag = { change, dragAmount ->
+                            change.consume()
+
+                            startPoint?.let { start ->
+                                endPoint = if (endPoint == null) {
+                                    start + dragAmount
+                                } else {
+                                    endPoint!! + dragAmount
+                                }
+                            }
+                        },
+                        onDragEnd = {
+                            dragEnd = true
+                        }
+                    )
+                }) {
+
             selectedImage?.let {
                 drawImage(it)
             }
 
+            drawRect(
+                color = Color.Black.copy(alpha = 0.3f),
+                topLeft = rootRect.topLeft,
+                size = rootRect.size,
+                style = Stroke(
+                    width = 1f,
+                    pathEffect =
+                        PathEffect.dashPathEffect(floatArrayOf(10f, 5f), phase = 0f)
+                )
+            )
+
             endPoint?.let {
-                dragRect.apply {
-                    topLeft = startPoint!!
-                    bottomRight = endPoint!!
-                }
                 drawRect(
-                    color = selectedColor.copy(alpha = 0.3f),
-                    topLeft = dragRect.topLeft,
-                    size = dragRect.size
+                    color = currentColor.copy(alpha = 0.3f),
+                    topLeft = Offset(
+                        min(startPoint!!.x, endPoint!!.x),
+                        min(startPoint!!.y, endPoint!!.y)
+                    ),
+                    size = Size(
+                        width = abs(startPoint!!.x - endPoint!!.x),
+                        height = abs(startPoint!!.y - endPoint!!.y)
+                    )
                 )
             }
 
-            fun drawElementAndInner(element: Element) {
-                val isContainer = element.isContainer()
-                drawRect(
-                    color = element.color,
-                    topLeft = element.area.topLeft,
-                    size = element.area.size,
-                    style = Stroke(
-                        width = if (isContainer) 1f else borderWidth.dp.toPx(),
-                        pathEffect = if (isContainer)
-                            PathEffect.dashPathEffect(floatArrayOf(10f, 5f), phase = 0f)
-                        else
-                            null
-                    ),
-
+            elements.forEach { element ->
+                if (element.isCircle) {
+                    drawCircle(
+                        color = element.color,
+                        center = element.area.center,
+                        radius = element.area.size.width / 2,
                     )
 
-                element.inner.forEach {
-                    drawElementAndInner(it)
+                } else {
+                    drawRoundRect(
+                        color = element.color,
+                        topLeft = element.area.topLeft,
+                        size = element.area.size,
+                        cornerRadius = CornerRadius(2f, 2f),
+                        style = Stroke(width = 2f)
+                    )
                 }
             }
-
-            drawElementAndInner(rootElement)
         }
 
         elements.forEach { element ->
             val textStyle = TextStyle.Default.copy(fontSize = 8.sp)
             Box(
                 modifier = Modifier
-                    .offset(
-                        x = element.area.bottomRight.x.convertToPx().dp - (measureTextWidth(
-                            element.type.name,
-                            textStyle
-                        ) / 2),
-                        y = element.area.bottomRight.y.convertToPx().dp
-                    )
                     .clip(CircleShape)
                     .background(Color.Green)
             ) {
                 Text(
                     style = textStyle,
-                    text = element.type.name,
+                    text = element.name,
                     modifier = Modifier
                         .padding(horizontal = 8.dp, vertical = 2.dp)
                 )
             }
         }
-
-        fun selectElement(it: Element.Type, about: String) {
-            val finalRect = Rect(startPoint!!, endPoint!!)
-
-            val newElement = Element(
-                area = finalRect,
-                type = it,
-                prompt = mutableStateOf(about),
-                color = selectedColor,
-                inner = mutableListOf()
-            )
-
-            fun sortRowColumnInner(container: Element) {
-                when (container.type) {
-                    Element.Type.Row -> {
-                        container.inner.sortBy { it.area.topLeft.x }
-                    }
-                    Element.Type.Column -> {
-                        container.inner.sortBy { it.area.topLeft.y }
-                    }
-                    else -> {}
-                }
-            }
-
-            val container = elements.findContainerRectOf(newElement)!!
-            println("container: ${container.type}")
-            if (container.isContainer()) {
-                container.inner.add(newElement)
-                sortRowColumnInner(container)
-            }
-
-            if (newElement.isContainer()) {
-                val inner = newElement.findInner(container.inner)
-                container.inner.forEach {
-                    it.inner.removeAll(inner)
-                }
-                container.inner.removeAll(inner)
-                newElement.inner = inner
-                sortRowColumnInner(container)
-            }
-
-            onNewElement(newElement)
-            selectedColor = nextColor()
-
-            elementsMenuExpanded = false
-
-            startPoint = null
-            endPoint = null
-        }
-
-        val x = if (endPoint == null) 0.dp else (endPoint!!.x.convertToPx()).dp
-        val y = if (endPoint == null) 0.dp else (endPoint!!.y.convertToPx()).dp
-        DropdownMenu(
-            expanded = elementsMenuExpanded,
-            onDismissRequest = { elementsMenuExpanded = false },
-            offset = DpOffset(x = x, y = y)
-        ) {
-            Text(
-                "Select Use Case:",
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(horizontal = 16.dp)
-            )
-            var aboutText by remember { mutableStateOf("") }
-            val focusRequester = remember { FocusRequester() }
-            LaunchedEffect(Unit) {
-                focusRequester.requestFocus()
-            }
-            TextField(
-                value = aboutText,
-                label = { Text("About") },
-                singleLine = true,
-                maxLines = 1,
-                onValueChange = {
-                    aboutText = it
-                },
-                modifier = Modifier.focusRequester(focusRequester).onKeyEvent {
-                    when {
-//                        it.type == KeyEventType.KeyUp && it.key == Key.Enter -> {
-//                            true
-//                        }
-
-                        else -> false
-                    }
-                }
-            )
-
-            fun menuItemTextBy(type: Element.Type): String {
-                return when (type) {
-                    Element.Type.Button -> "Button" //"ClickTo"
-                    Element.Type.TextField -> "TextField" //"InputText"
-                    Element.Type.Column -> "Column" //"SelectItem"
-                    Element.Type.LazyColumn -> "LazyColumn" //"SelectItem"
-                    Element.Type.Row -> "Row" //"SelectItem"
-                    Element.Type.LazyRow -> "LazyRow" //"SelectItem"
-                    Element.Type.Text -> "Text" //"LookAtText"
-                    Element.Type.Icon -> "Icon" //"LookAtImage"
-                    Element.Type.Coil -> "Coil" //"LookAtImage"
-                    Element.Type.Box -> "Box"
-                }
-            }
-
-            Element.Type.entries.forEach {
-                DropdownMenuItem(
-                    onClick = {
-                        selectElement(it, aboutText)
-                    }
-                ) { Text(menuItemTextBy(it)) }
-            }
-        }
     }
 }
 
-const val borderWidth = 2f
 
 private val colors = listOf(
     Color(0xFFF44336), // Красный (Red)
@@ -264,7 +199,7 @@ private val colors = listOf(
     Color(0xFF9C27B0)  // Фиолетовый (Violet)
 )
 private var colorPosition = 0
-var selectedColor = nextColor()
+
 fun nextColor(): Color {
     return colors[colorPosition].apply {
         colorPosition += 1
