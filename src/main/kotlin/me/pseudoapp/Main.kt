@@ -3,15 +3,9 @@ package me.pseudoapp
 import androidx.compose.desktop.ui.tooling.preview.Preview
 import androidx.compose.material.MaterialTheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.MutableState
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
-import me.pseudoapp.other.SizeObserver
-import me.pseudoapp.other.convertToPx
 import me.pseudoapp.views.MainScreen
 
 // NOTE: Работа с тем чего нет - источник ошибок при разработке приложения
@@ -29,10 +23,6 @@ import me.pseudoapp.views.MainScreen
 @Composable
 @Preview
 fun App() {
-    SizeObserver()
-    println("px: ${1f.convertToPx()}")
-    println("DP: ${1.dp.value}")
-    println("DP to px: ${1.dp.value.convertToPx()}")
     MaterialTheme {
         MainScreen()
     }

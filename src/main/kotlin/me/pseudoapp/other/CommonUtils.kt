@@ -47,19 +47,7 @@ fun measureTextWidth(text: String, style: TextStyle = TextStyle.Default): Dp {
     return with(LocalDensity.current) { widthInPixels.toDp() }
 }
 
-object SizeObserver {
-    private val _oneDp = MutableStateFlow(1f)
-    val oneDP = _oneDp.asStateFlow()
-    val oneDpValue get() = _oneDp.value
-
-    @Composable
-    operator fun invoke() {
-        Box(
-            modifier = Modifier
-                .size(10.dp)
-                .onSizeChanged { _oneDp.value = it.width / 10f }
-        )
-    }
+@Composable
+fun Float.pxToDp(): Dp {
+    return with(LocalDensity.current) { this@pxToDp.toDp() }
 }
-
-fun Float.convertToPx(): Float = (this / SizeObserver.oneDpValue)

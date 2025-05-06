@@ -9,5 +9,6 @@ data class Element(
     var value: String,
     val area: Rect,
     val color: Color,
-    val isCircle: Boolean = true
+    val isCircle: Boolean = true,
+    val isFilled: Boolean = true
 )

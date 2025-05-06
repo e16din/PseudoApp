@@ -1,17 +1,12 @@
 package me.pseudoapp.views
 
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.Text
 import androidx.compose.runtime.*
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
@@ -19,11 +14,16 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInParent
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.drawText
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import me.pseudoapp.Element
@@ -35,6 +35,7 @@ import kotlin.math.min
 @Composable
 fun LayoutView(
     ctrlPressed: MutableState<Boolean>,
+    shiftPressed: MutableState<Boolean>,
     selectedImage: ImageBitmap?,
     elements: SnapshotStateList<Element>,
     onNewElement: (Element) -> Unit,
@@ -52,9 +53,23 @@ fun LayoutView(
             return@LaunchedEffect
         }
 
+        val isCircle = !ctrlPressed.value
+
+        var name = currentColor.name
+
+        name += if (isCircle) {
+            "Circle"
+        } else {
+            "Rect"
+        }
+
+        if (elements.size >= RainbowColor.entries.size) {
+            name += elements.size / RainbowColor.entries.size
+        }
+
         elements.add(
             Element(
-                name = "CircleArea1",
+                name = name,
                 value = "",
                 area = Rect(
                     Offset(
@@ -66,10 +81,12 @@ fun LayoutView(
                         max(startPoint!!.y, endPoint!!.y)
                     )
                 ),
-                color = currentColor,
-                isCircle = !ctrlPressed.value
+                color = currentColor.color,
+                isCircle = isCircle,
+                isFilled = shiftPressed.value,
             )
         )
+
         startPoint = null
         endPoint = null
         dragEnd = false
@@ -77,6 +94,8 @@ fun LayoutView(
     }
 
     var rootRect by remember { mutableStateOf(Rect(Offset.Zero, Offset.Zero)) }
+    val textMeasurer = rememberTextMeasurer()
+
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -98,8 +117,6 @@ fun LayoutView(
                 .pointerInput(Unit) {
                     detectDragGestures(
                         onDragStart = { offset ->
-//                            requester.requestFocus()
-
                             startPoint = offset
                             println("onDragStart")
                             println("$startPoint")
@@ -138,7 +155,7 @@ fun LayoutView(
 
             endPoint?.let {
                 drawRect(
-                    color = currentColor.copy(alpha = 0.3f),
+                    color = currentColor.color.copy(alpha = 0.3f),
                     topLeft = Offset(
                         min(startPoint!!.x, endPoint!!.x),
                         min(startPoint!!.y, endPoint!!.y)
@@ -156,6 +173,7 @@ fun LayoutView(
                         color = element.color,
                         center = element.area.center,
                         radius = element.area.size.width / 2,
+                        style = if (element.isFilled) Fill else Stroke(width = 2f)
                     )
 
                 } else {
@@ -164,46 +182,60 @@ fun LayoutView(
                         topLeft = element.area.topLeft,
                         size = element.area.size,
                         cornerRadius = CornerRadius(2f, 2f),
-                        style = Stroke(width = 2f)
+                        style = if (element.isFilled) Fill else Stroke(width = 2f)
                     )
                 }
-            }
-        }
 
-        elements.forEach { element ->
-            val textStyle = TextStyle.Default.copy(fontSize = 8.sp)
-            Box(
-                modifier = Modifier
-                    .clip(CircleShape)
-                    .background(Color.Green)
-            ) {
-                Text(
-                    style = textStyle,
-                    text = element.name,
-                    modifier = Modifier
-                        .padding(horizontal = 8.dp, vertical = 2.dp)
+                val textLayoutResult =
+                    textMeasurer.measure(
+                        text = AnnotatedString(element.name),
+                        style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    )
+                val textSize = textLayoutResult.size
+
+                drawText(
+                    textLayoutResult = textLayoutResult,
+                    topLeft = Offset(
+                        x = element.area.left + element.area.width / 2 - textSize.width / 2f,
+                        y = element.area.top - 8.dp.toPx() + element.area.height / 2 - textSize.height / 2f
+                    ),
+                )
+
+                val textLayoutResult2 =
+                    textMeasurer.measure(
+                        text = AnnotatedString(element.value),
+                        style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                    )
+                val textSize2 = textLayoutResult2.size
+
+                drawText(
+                    textLayoutResult = textLayoutResult2,
+                    topLeft = Offset(
+                        x = element.area.left + element.area.width / 2 - textSize2.width / 2f,
+                        y = element.area.top + 12.dp.toPx() + element.area.height / 2 - textSize2.height / 2f
+                    ),
                 )
             }
         }
     }
 }
 
+enum class RainbowColor(val color: Color) {
+    Red(Color(0xFFF44336)),
+    Orange(Color(0xFFFF9800)),
+    Yellow(Color(0xFFFFEB3B)),
+    Green(Color(0xFF4CAF50)),
+    Blue(Color(0xFF2196F3)),
+    Indigo(Color(0xFF3F51B5)),
+    Violet(Color(0xFF9C27B0)),
+}
 
-private val colors = listOf(
-    Color(0xFFF44336), // Красный (Red)
-    Color(0xFFFF9800), // Оранжевый (Orange)
-    Color(0xFFFFEB3B), // Желтый (Yellow)
-    Color(0xFF4CAF50), // Зеленый (Green)
-    Color(0xFF2196F3), // Голубой (Blue)
-    Color(0xFF3F51B5), // Индиго (Indigo)
-    Color(0xFF9C27B0)  // Фиолетовый (Violet)
-)
-private var colorPosition = 0
+var colorPosition = 0
 
-fun nextColor(): Color {
-    return colors[colorPosition].apply {
+fun nextColor(): RainbowColor {
+    return RainbowColor.entries[colorPosition].apply {
         colorPosition += 1
-        if (colorPosition == colors.size) {
+        if (colorPosition == RainbowColor.entries.size) {
             colorPosition = 0
         }
     }

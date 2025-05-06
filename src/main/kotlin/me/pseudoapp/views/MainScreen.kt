@@ -10,10 +10,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.input.key.KeyEventType
-import androidx.compose.ui.input.key.isCtrlPressed
-import androidx.compose.ui.input.key.onKeyEvent
-import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.key.*
 import androidx.compose.ui.unit.dp
 import me.pseudoapp.Element
 import me.pseudoapp.other.pickImage
@@ -25,7 +22,8 @@ fun MainScreen() {
     val elements = remember { mutableStateListOf<Element>() }
 //    val undoElements = remember { mutableStateListOf<Element>() }
     val requester = remember { FocusRequester() }
-    var ctrlPressed = remember { mutableStateOf(false) }
+    val ctrlPressed = remember { mutableStateOf(false) }
+    val shiftPressed = remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         requester.requestFocus()
@@ -39,7 +37,9 @@ fun MainScreen() {
                 ctrlPressed.value = keyEvent.isCtrlPressed
                         && keyEvent.type == KeyEventType.KeyDown
 
-                println("ctrlPressed: $ctrlPressed")
+                shiftPressed.value = keyEvent.isShiftPressed
+                        && keyEvent.type == KeyEventType.KeyDown
+
                 return@onKeyEvent true
             }
     ) {
@@ -61,6 +61,7 @@ fun MainScreen() {
             ) {
                 LayoutView(
                     ctrlPressed,
+                    shiftPressed,
                     selectedImage,
                     elements,
                     onNewElement = { element ->
