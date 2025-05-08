@@ -33,22 +33,116 @@ fun InsructionsEditorView(
 ) {
     val instructionsRequester = remember { FocusRequester() }
     var codeValue by remember { mutableStateOf(TextFieldValue()) }
-    var isElementInserted by remember { mutableStateOf(false) }
+//    var isElementInserted by remember { mutableStateOf(false) }
+    var isCodeCompletionEnabled by remember { mutableStateOf(false) }
     var textFieldPosition by remember { mutableStateOf(Offset.Zero) } // позиция TextField на экране
     var cursorOffsetInTextField by remember { mutableStateOf(Offset.Zero) } // позиция курсора внутри TextField
     var textFieldSize by remember { mutableStateOf(IntSize.Zero) }
     var layoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
 
+    val textStyle = TextStyle.Default
+
+    fun updateValues() {
+        // detect value changed
+        codeValue.text.split("\n").forEach { line ->
+            val startIndex = line.indexOf("(")
+            val endIndex = line.indexOf(")")
+            if (startIndex != -1 && endIndex != -1 && startIndex + 1 != endIndex) {
+                val value = line.substring(startIndex + 1, endIndex)
+
+                val prevDividerIndex = listOf(
+                    codeValue.text.lastIndexOf("\n", codeValue.selection.end - 1),
+                    codeValue.text.lastIndexOf(" ", codeValue.selection.end - 1),
+                    codeValue.text.lastIndexOf(",", codeValue.selection.end - 1),
+                ).filter { it >= 0 }.maxByOrNull { it } ?: 0
+                println("line: $line")
+                val name = line.substring(if (prevDividerIndex > startIndex) 0 else prevDividerIndex, startIndex)
+
+                println("value: $value")
+                println("name: $name")
+                val element = elements.firstOrNull { it.name == name }
+                element?.let {
+                    elements.remove(element)
+                    elements.add(element.copy(value = value))
+                }
+            }
+        }
+    }
+
+    @Composable
+    fun completeCode() {
+        //            if (codeValue.selection.start > 0) {
+        // code completion
+        val prevDividerIndex = listOf(
+            codeValue.text.lastIndexOf("\n", codeValue.selection.end - 1),
+            codeValue.text.lastIndexOf(" ", codeValue.selection.end - 1),
+            codeValue.text.lastIndexOf(",", codeValue.selection.end - 1),
+        ).filter { it >= 0 }.maxByOrNull { it } ?: 0
+
+        val start = prevDividerIndex + 1
+        val query = codeValue.text.substring(
+            startIndex = start, endIndex = if (codeValue.selection.end > start) codeValue.selection.end else start
+        )
+        val isCodeCompletionShown = query.length > 1 //&& !isElementInserted
+        if (isCodeCompletionShown) {
+            val x = textFieldPosition.x + cursorOffsetInTextField.x
+            val y = textFieldPosition.y + cursorOffsetInTextField.y
+
+            val nextDividerIndex = listOf(
+                codeValue.text.indexOf("\n", codeValue.selection.end - 1),
+                codeValue.text.indexOf(" ", codeValue.selection.end - 1),
+                codeValue.text.indexOf(",", codeValue.selection.end - 1),
+            ).filter { it >= 0 }.minByOrNull { it } ?: (codeValue.text.length)
+
+            Column(
+                Modifier.offset(
+                    x = x.dp - 16.dp,
+                    y = y.dp + measureTextHeight("Height", textStyle),
+                ).background(Color(0xFF141414))
+                // NOTE: todo: клик показывать не на кнопке а там где нажал, если попадает в кнопку то срабатывает
+
+            ) {
+
+
+                val filtered = elements.filter { it.name.contains(query) }
+                filtered.forEach { element ->
+                    val newText =
+                        StringBuffer(codeValue.text).replace(codeValue.selection.end, nextDividerIndex, "")
+                            .replace(
+                                if (prevDividerIndex == 0) 0 else prevDividerIndex + 1,
+                                codeValue.selection.end,
+                                ""
+                            ).insert(
+                                if (prevDividerIndex == 0) 0 else prevDividerIndex + 1, element.name
+                            ).toString()
+
+                    Text(
+                        element.name, color = Color.White, modifier = Modifier.clickable {
+                            //isElementInserted = true
+                            isCodeCompletionEnabled = false
+                            val selectorPosition =
+                                (prevDividerIndex + if (prevDividerIndex == 0) 0 else 1) + element.name.length
+                            instructionsRequester.requestFocus()
+                            codeValue = TextFieldValue(
+                                text = newText,
+                                selection = TextRange(selectorPosition),
+                            )
+                        })
+                    Divider()
+                }
+            }
+        }
+    }
+
     Column(Modifier.fillMaxSize()) {
         Box {
-            val textStyle = TextStyle.Default
             BasicTextField(
                 value = codeValue,
                 textStyle = textStyle,
                 onValueChange = {
                     codeValue = it
 
-                    isElementInserted = false
+                    //isElementInserted = false
 
                     val cursorPos = codeValue.selection.end
                     if (layoutResult != null && cursorPos >= 0 && cursorPos <= codeValue.text.length) {
@@ -59,8 +153,11 @@ fun InsructionsEditorView(
                             e.printStackTrace()
                         }
                     }
-                },
-                onTextLayout = { result ->
+
+                    isCodeCompletionEnabled = true
+                    updateValues()
+
+                }, onTextLayout = { result ->
                     layoutResult = result
                     val cursorPos = codeValue.selection.end
                     if (cursorPos >= 0 && cursorPos <= codeValue.text.length) {
@@ -69,81 +166,14 @@ fun InsructionsEditorView(
                     }
                 },
 
-                modifier = Modifier.fillMaxSize()
-                    .focusRequester(instructionsRequester)
+                modifier = Modifier.fillMaxSize().focusRequester(instructionsRequester)
                     .onGloballyPositioned { coordinates ->
                         textFieldPosition = coordinates.positionInParent()
                         textFieldSize = coordinates.size
-                    }
-            )
+                    })
 
-            if (codeValue.selection.start > 0) {
-                val prevDividerIndex = listOf(
-                    codeValue.text.lastIndexOf("\n", codeValue.selection.end - 1),
-                    codeValue.text.lastIndexOf(" ", codeValue.selection.end - 1),
-                    codeValue.text.lastIndexOf(",", codeValue.selection.end - 1),
-                ).filter { it >= 0 }
-                    .maxByOrNull { it } ?: 0
-
-                val start = prevDividerIndex + 1
-                val query = codeValue.text.substring(
-                    startIndex = start,
-                    endIndex = if (codeValue.selection.end > start) codeValue.selection.end else start
-                )
-                val isShown = query.length > 1 && !isElementInserted
-
-                if (isShown) {
-                    val x = textFieldPosition.x + cursorOffsetInTextField.x
-                    val y = textFieldPosition.y + cursorOffsetInTextField.y
-                    Column(
-                        Modifier
-                            .offset(
-                                x = x.dp - 16.dp,
-                                y = y.dp + measureTextHeight("Height", textStyle),
-                            )
-                            .background(Color(0xFF141414))
-                        // NOTE: todo: клик показывать не на кнопке а там где нажал, если попадает в кнопку то срабатывает
-
-                    ) {
-                        val filtered = elements.filter { it.name.contains(query) }
-                        filtered.forEach { element ->
-                            Text(
-                                element.name,
-                                color = Color.White,
-                                modifier = Modifier.clickable {
-                                    val nextDividerIndex = listOf(
-                                        codeValue.text.indexOf("\n", codeValue.selection.end - 1),
-                                        codeValue.text.indexOf(" ", codeValue.selection.end - 1),
-                                        codeValue.text.indexOf(",", codeValue.selection.end - 1),
-                                    ).filter { it >= 0 }
-                                        .minByOrNull { it }
-                                        ?: (codeValue.text.length)
-
-                                    val newText =
-                                        StringBuffer(codeValue.text)
-                                            .replace(codeValue.selection.end, nextDividerIndex, "")
-                                            .replace(
-                                                if (prevDividerIndex == 0) 0 else prevDividerIndex + 1,
-                                                codeValue.selection.end,
-                                                ""
-                                            )
-                                            .insert(
-                                                if (prevDividerIndex == 0) 0 else prevDividerIndex + 1,
-                                                element.name
-                                            ).toString()
-                                    isElementInserted = true
-                                    val selectorPosition =
-                                        (prevDividerIndex + if (prevDividerIndex == 0) 0 else 1) + element.name.length
-                                    instructionsRequester.requestFocus()
-                                    codeValue = TextFieldValue(
-                                        text = newText,
-                                        selection = TextRange(selectorPosition),
-                                    )
-                                })
-                            Divider()
-                        }
-                    }
-                }
+            if (isCodeCompletionEnabled) {
+                completeCode()
             }
         }
     }
