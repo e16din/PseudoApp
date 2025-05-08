@@ -1,7 +1,11 @@
 package me.pseudoapp.views
 
+
 import androidx.compose.foundation.focusable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material.Button
 import androidx.compose.material.Card
 import androidx.compose.material.Text
@@ -21,18 +25,21 @@ fun MainScreen() {
     var selectedImage by remember { mutableStateOf<ImageBitmap?>(null) }
     val elements = remember { mutableStateListOf<Element>() }
 //    val undoElements = remember { mutableStateListOf<Element>() }
-    val requester = remember { FocusRequester() }
+    val keyboardRequester = remember { FocusRequester() }
+
     val ctrlPressed = remember { mutableStateOf(false) }
     val shiftPressed = remember { mutableStateOf(false) }
 
+
+
     LaunchedEffect(Unit) {
-        requester.requestFocus()
+        keyboardRequester.requestFocus()
     }
 
     Column(
         Modifier
             .focusable()
-            .focusRequester(requester)
+            .focusRequester(keyboardRequester)
             .onKeyEvent { keyEvent ->
                 ctrlPressed.value = keyEvent.isCtrlPressed
                         && keyEvent.type == KeyEventType.KeyDown
@@ -71,15 +78,14 @@ fun MainScreen() {
                 )
             }
 
-            Card(Modifier.weight(1f)) {
-                Column(Modifier.fillMaxSize()) {
-
-                }
+            Card(
+                Modifier.weight(1f)
+                    .padding(12.dp)
+            ) {
+                InsructionsEditorView(elements)
             }
-
-
         }
     }
-
 }
+
 

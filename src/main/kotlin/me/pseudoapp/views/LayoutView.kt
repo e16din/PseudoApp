@@ -67,30 +67,33 @@ fun LayoutView(
             name += elements.size / RainbowColor.entries.size
         }
 
-        elements.add(
-            Element(
-                name = name,
-                value = "",
-                area = Rect(
-                    Offset(
-                        min(startPoint!!.x, endPoint!!.x),
-                        min(startPoint!!.y, endPoint!!.y)
-                    ),
-                    Offset(
-                        max(startPoint!!.x, endPoint!!.x),
-                        max(startPoint!!.y, endPoint!!.y)
-                    )
+        val newElement = Element(
+            name = name,
+            value = "",
+            area = Rect(
+                Offset(
+                    min(startPoint!!.x, endPoint!!.x),
+                    min(startPoint!!.y, endPoint!!.y)
                 ),
-                color = currentColor.color,
-                isCircle = isCircle,
-                isFilled = shiftPressed.value,
-            )
+                Offset(
+                    max(startPoint!!.x, endPoint!!.x),
+                    max(startPoint!!.y, endPoint!!.y)
+                )
+            ),
+            color = currentColor.color,
+            isCircle = isCircle,
+            isFilled = shiftPressed.value,
+        )
+        elements.add(
+            newElement
         )
 
         startPoint = null
         endPoint = null
         dragEnd = false
         currentColor = nextColor()
+
+        onNewElement(newElement)
     }
 
     var rootRect by remember { mutableStateOf(Rect(Offset.Zero, Offset.Zero)) }
