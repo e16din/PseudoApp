@@ -42,13 +42,40 @@ fun InsructionsEditorView(
 
     val textStyle = TextStyle.Default
 
+    fun calc(operation: String): String { // simple implementation
+        val pair = operation.split("+")
+
+        try {
+            return (pair[0].trim().toInt() + pair[1].trim().toInt()).toString()
+        } catch (e: Exception) {
+            return "Not Implement"
+        }
+    }
+
     fun updateValues() {
         // detect value changed
         codeValue.text.split("\n").forEach { line ->
             val startIndex = line.indexOf("(")
             val endIndex = line.indexOf(")")
             if (startIndex != -1 && endIndex != -1 && startIndex + 1 != endIndex) {
-                val value = line.substring(startIndex + 1, endIndex)
+                var value = line.substring(startIndex + 1, endIndex)
+
+                var startMathIndex = value.indexOf("{", 0)
+                var endMathIndex = value.indexOf("}", 0)
+                while (startMathIndex != -1 && endMathIndex != -1) {
+                    if (startMathIndex + 1 != endMathIndex) {
+                        val builder = StringBuilder(value)
+                            .replace(
+                                startMathIndex, endMathIndex + 1,
+                                calc(value.substring(startMathIndex + 1, endMathIndex))
+                            )
+
+                        value = builder.toString()
+                    }
+
+                    startMathIndex = value.indexOf("{", endMathIndex + 1)
+                    endMathIndex = value.indexOf("}", endMathIndex + 1)
+                }
 
                 val prevDividerIndex = listOf(
                     codeValue.text.lastIndexOf("\n", codeValue.selection.end - 1),
@@ -69,10 +96,13 @@ fun InsructionsEditorView(
         }
     }
 
+    // {2+3} # 5
+    // {2+3} + 12w + {3*3} # 512w9
+    // RedCircle({2+3}) # RedCircle(5)
+    // 2+3 # 23
+
     @Composable
     fun completeCode() {
-        //            if (codeValue.selection.start > 0) {
-        // code completion
         val prevDividerIndex = listOf(
             codeValue.text.lastIndexOf("\n", codeValue.selection.end - 1),
             codeValue.text.lastIndexOf(" ", codeValue.selection.end - 1),
