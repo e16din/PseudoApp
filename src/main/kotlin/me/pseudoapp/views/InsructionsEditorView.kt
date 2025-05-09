@@ -25,6 +25,7 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import me.pseudoapp.Element
+import me.pseudoapp.other.calcMath
 import me.pseudoapp.other.measureTextHeight
 
 @Composable
@@ -42,13 +43,11 @@ fun InsructionsEditorView(
 
     val textStyle = TextStyle.Default
 
-    fun calc(operation: String): String { // simple implementation
-        val pair = operation.split("+")
-
-        try {
-            return (pair[0].trim().toInt() + pair[1].trim().toInt()).toString()
+    fun calc(data: String): String { // simple implementation
+        return try {
+            calcMath(data)
         } catch (e: Exception) {
-            return "Not Implement"
+            "?"
         }
     }
 
@@ -56,7 +55,7 @@ fun InsructionsEditorView(
         // detect value changed
         codeValue.text.split("\n").forEach { line ->
             val startIndex = line.indexOf("(")
-            val endIndex = line.indexOf(")")
+            val endIndex = line.lastIndexOf(")")
             if (startIndex != -1 && endIndex != -1 && startIndex + 1 != endIndex) {
                 var value = line.substring(startIndex + 1, endIndex)
 
