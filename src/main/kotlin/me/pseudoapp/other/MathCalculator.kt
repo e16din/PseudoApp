@@ -101,23 +101,14 @@ fun calcMath(rowExpression: String): String {
             startIndex = endIndex,
             fromEndToStart = true
         )
-        println("rowExpression: $rowExpression")
-        println("startIndex: $startIndex")
-        println("endIndex: $endIndex")
 
         // 2. Вычисляем сложные операции (*, /, % и т.п.)
 
         listOf('*', '/', '%').forEach { op ->
-            println("x100")
             while (true) {
-                println("x200")
                 val endIndex0 = result.positionOf(")")
-                val opIndex = result.substring(0, endIndex0).positionOf(
-                    "$op",
-                    startIndex + 1
-                )
-                println("300")
-//                println("opIndex: ${opIndex}")
+                val opIndex = result.substring(0, endIndex0).positionOf("$op",
+                    startIndex + 1)
                 if (opIndex == -1) {
                     break
                 }
@@ -132,45 +123,28 @@ fun calcMath(rowExpression: String): String {
                 }
                 val endIndex1 = opIndex
 
-                println("startIndex2: ${startIndex1}")
-                println("endIndex2: ${endIndex1}")
                 var expression = result.substring(startIndex1 + 1, endIndex1) + op
 
                 val startIndex2 = opIndex + 1
 
-                println("result...: ${result}")
-                println("opIndex + 1: ${opIndex + 1}")
                 var endIndex2 = result.positionOf(
                     {
                         println(it)
                         !digitsWithDot.contains(it)
                     }, opIndex + 1
                 )
-                println("endIndex2: $endIndex2")
                 if (endIndex2 == -1) {
-                    println("q .")
                     endIndex2 = result.length
                 }
-//                println("startIndex3: ${startIndex2}")
-//                println("endIndex3: ${endIndex2}")
                 expression += result.substring(startIndex2, endIndex2)
 
-                println("expression: ${expression}")
                 val calcResult = calcOperation(expression)
-                println("calcResult: ${calcResult}")
-                println("result a: ${result}")
-                result.replace(startIndex1 + 1, endIndex2, "${calcResult}")
-                println("result b: ${result}")
-//                println("temp: ${result.substring(startIndex1 + 1, endIndex2)}")
 
+                result.replace(startIndex1 + 1, endIndex2, "${calcResult}")
             }
         }
 
-
-        println("x0")
         // 3. Вычисляем простые(бинарные) операции (+, -)
-        println("result c: ${result}")
-        println("x1")
         val end1 = result.positionOf(")")
         var start1 = result.positionOf(
             "(",
@@ -180,17 +154,12 @@ fun calcMath(rowExpression: String): String {
         if (start1 == -1) {
             start1 = 0
         }
-        println("x2")
-        println("start1; $start1")
-        println("x3")
-//        val end1 = result.positionOf(")")
+
         val blockExpression = result.substring(start1 + 1, end1)
-        println("blockExpression: $blockExpression")
         val calcResult = calcOperation(blockExpression.toString())
-        println("calcOperation: $calcResult")
+
         result.replace(start1 + 1, end1, calcResult.toString())
-        println("result: $result")
-        println("x4")
+
         // 3. Убираем скобки
         val end2 = result.positionOf(")")
         var start2 = result.positionOf(
@@ -202,13 +171,10 @@ fun calcMath(rowExpression: String): String {
             start2 = 0
         }
 
-        println("x5")
         result.replace(start2, start2 + 1, "")
-        println("x6")
         val end3 = result.positionOf(")")
-        println("subs x: ${result.substring(end3, end3 + 1)}")
+
         result.replace(end3, end3 + 1, "")
-        println("result x: $result")
 
         // 2. Затем переносим операцию за скобки
 //        2*(-1) -> -2*(1) встречая * двигается дальше
@@ -228,28 +194,25 @@ fun calcMath(rowExpression: String): String {
             val notOp = ops.filter { it != op }
             while (true) {
                 val index = result.positionOf("$op", start2)
-                println("op: $op")
-                println("start: $start2")
-                println("index: $index")
                 if (index == -1) {
                     break
                 }
 
                 // переносим знак до тех пор пока не встретим другой boolean-знак(+/-)
                 result.replace(index, index + 1, "") // удаляем знак
-//                println("result2: ${result}")
                 for (i in index downTo 0) {
                     val c = result[i]
 
                     when (c) {
                         '+' -> {
-//                            println("c: ${c} | ${result.substring(i, i + 1)} | $op")
                             result.replace(i, i + 1, "$op") // оставляем знак
-                            println("result3: ${result}")
                             break
                         }
 
-                        '-' -> result.replace(i, i + 1, "$notOp") // меняем знак
+                        '-' -> {
+                            result.replace(i, i + 1, "$notOp") // меняем знак
+                            break
+                        }
                     }
                     if (i == 0 && !ops.contains(c)) {
                         result.insert(0, op)
