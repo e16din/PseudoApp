@@ -25,6 +25,7 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import me.pseudoapp.Element
+import me.pseudoapp.other.calcInBrackets
 import me.pseudoapp.other.calcMath
 import me.pseudoapp.other.measureTextHeight
 
