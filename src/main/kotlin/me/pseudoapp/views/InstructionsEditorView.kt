@@ -124,7 +124,14 @@ fun InstructionsEditorView(
 
                         while (startMathIndex != -1 && endMathIndex != -1) {
                             if (startMathIndex + 1 != endMathIndex) {
-                                val calcResult = calc(lineCalculated.substring(startMathIndex + 1, endMathIndex))
+                                val value = StringBuilder(lineCalculated.substring(startMathIndex + 1, endMathIndex))
+                                elements.forEach {
+                                    val nameIndex = value.indexOf(it.name)
+                                    if (nameIndex != -1) {
+                                        value.replace(nameIndex, nameIndex + it.name.length, it.value)
+                                    }
+                                }
+                                val calcResult = calc(value.toString())
                                 lineCalculated.replace(
                                     startMathIndex, endMathIndex + 1,
                                     calcResult
