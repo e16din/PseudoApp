@@ -29,6 +29,8 @@ import me.pseudoapp.Element
 import me.pseudoapp.other.calcMath
 import me.pseudoapp.other.measureTextHeight
 
+const val unknown = "?"
+
 @Composable
 fun InstructionsEditorView(
     elements: SnapshotStateList<Element>,
@@ -60,15 +62,20 @@ fun InstructionsEditorView(
         return try {
             calcMath(data)
         } catch (e: Exception) {
-            "?"
+            e.printStackTrace()
+            unknown
         }
     }
 
     fun updateValues() {
+        if (codeValue.text.length < 1) {
+            return
+        }
         // detect value changed
         val source = StringBuilder(codeValue.text)
         val lines = source.split("\n")
         lines.forEachIndexed { i, line ->
+
             // если нашли знак = и справа от него - словарь:имя,
             // то наполняем словарь тем что слева от =
             val index = line.lastIndexOf("=")
@@ -77,9 +84,11 @@ fun InstructionsEditorView(
                 && line.trim().length > 1
                 && index < line.length - 1
             ) {
+                println("x3")
                 var left = line.substring(0, index)
+                println("x4")
                 val right = line.substring(index + 1, line.length).trim()
-
+                println("x5")
                 var totalTextIndex = 0
                 var pointer = i - 1
                 while (pointer >= 0) {
@@ -88,6 +97,14 @@ fun InstructionsEditorView(
                 }
                 totalTextIndex += index + 1
 
+                namesMap.firstNotNullOfOrNull {
+                    if (it.value == right && it.key != totalTextIndex)
+                        it
+                    else
+                        null
+                }?.let {
+                    namesMap.remove(it.key)
+                }
                 namesMap[totalTextIndex] = right
                 println("right: $right")
 
@@ -138,19 +155,27 @@ fun InstructionsEditorView(
                             if (startMathIndex + 1 != endMathIndex) {
                                 println("x1")
                                 val value = StringBuilder(lineCalculated.substring(startMathIndex + 1, endMathIndex))
-                                println("x2")
-                                elements.forEach {
-                                    println("it.name: ${it.name}")
-                                    val nameIndex = value.indexOf(it.name)
-                                    if (nameIndex != -1) {
-                                        value.replace(nameIndex, nameIndex + it.name.length, it.value)
+
+                                elements.sortedByDescending { it.name.length } // для того чтобы R не подставлялся в Result
+                                    .forEach {
+                                        println("it.name: ${it.name}")
+                                        val nameIndex = value.indexOf(it.name)
+                                        val elementValue = it.value.trim().replace("\n", "")
+                                        if (nameIndex != -1 && elementValue != unknown) {
+                                            println("it.valuevalue: $elementValue")
+                                            value.replace(nameIndex, nameIndex + it.name.length, elementValue)
+                                            println("value3: $value")
+                                        }
                                     }
-                                }
+                                println("value4: $value")
+
                                 val calcResult = calc(value.toString())
+                                println("calcResult: $calcResult")
                                 lineCalculated.replace(
                                     startMathIndex, endMathIndex + 1,
                                     calcResult
                                 )
+                                println("lineCalculated: $lineCalculated")
                             }
 
                             startMathIndex = lineCalculated.indexOf("{", endMathIndex + 1)
@@ -206,11 +231,16 @@ fun InstructionsEditorView(
 
                 // очистка мусора :)
                 // элементы которые мы удалили в коде - удаляем и на макете
+                for (it in namesMap) {
+                    if (!source.contains(it.value)) {
+                        namesMap.remove(it.key)
+                    }
+                }
                 println("namesMap: ${namesMap}")
                 val removed = elements.filter { !namesMap.values.contains(it.name) }
                 println("elements: ${elements.map { it.name }}")
                 println("removed: ${removed}")
-//                elements.removeAll(removed)
+                elements.removeAll(removed)
             }
 
             // это именование/добавление в словарь/создание функции
@@ -237,6 +267,10 @@ fun InstructionsEditorView(
 
     @Composable
     fun completeCode() {
+        if (codeValue.text.length < 2) {
+            return
+        }
+
         val prevDividerIndex = listOf(
             codeValue.text.lastIndexOf("\n", codeValue.selection.end - 1),
             codeValue.text.lastIndexOf(" ", codeValue.selection.end - 1),
@@ -311,7 +345,7 @@ fun InstructionsEditorView(
                     //isElementInserted = false
 
                     val cursorPos = codeValue.selection.end
-                    if (layoutResult != null && cursorPos >= 0 && cursorPos <= codeValue.text.length) {
+                    if (layoutResult != null && cursorPos > 0 && cursorPos < codeValue.text.length) {
                         try {
                             val cursorRect = layoutResult!!.getCursorRect(cursorPos)
                             cursorOffsetInTextField = Offset(cursorRect.left, cursorRect.top)
@@ -322,6 +356,7 @@ fun InstructionsEditorView(
 
                     isCodeCompletionEnabled = true
 //                    if(!isFormatting) {
+
                     try {
                         updateValues()
                     } catch (e: Exception) {

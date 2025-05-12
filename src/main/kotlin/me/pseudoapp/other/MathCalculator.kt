@@ -14,7 +14,8 @@ fun main() {
 //    println(calcMath(("(1+2*2+(1-2*2+1+(1-5*2+(-4+2*5))))"))
 //    println(calcMath(("2*2*(1-2)")))
 //    println(calcMath("2*2*(1-2*(3+(48-51)))"))
-    println(calcMath("12/12*(9+1*(-1))*96"))
+//    println(calcMath("12/12*(9+1*(-1))*96"))
+    println(calcMath("(1+30)*2"))
 //    println(calcMath(("1+1*2*(2+4)*3+(12+14/2)*2")))
 }
 
@@ -84,8 +85,8 @@ private fun addBrackets(data: String): String {
 }
 
 fun calcMath(expression: String): String {
-    val brackets = addBrackets(expression)
     println("expression: $expression")
+    val brackets = addBrackets(" $expression ")
     println("brackets: $brackets")
     var result = calcInBrackets(brackets)
 
