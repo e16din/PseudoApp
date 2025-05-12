@@ -38,6 +38,7 @@ fun LayoutView(
     shiftPressed: MutableState<Boolean>,
     selectedImage: ImageBitmap?,
     elements: SnapshotStateList<Element>,
+    currentColor: MutableState<RainbowColor>,
     onNewElement: (Element) -> Unit,
     modifier: Modifier
 ) {
@@ -46,7 +47,6 @@ fun LayoutView(
     var endPoint by remember { mutableStateOf<Offset?>(null) }
 
     var dragEnd by remember { mutableStateOf(false) }
-    var currentColor by remember { mutableStateOf(nextColor()) }
 
     LaunchedEffect(dragEnd) {
         if (!dragEnd) {
@@ -55,7 +55,7 @@ fun LayoutView(
 
         val isCircle = !ctrlPressed.value
 
-        var name = currentColor.name
+        var name = currentColor.value.name
 
         name += if (isCircle) {
             "Circle"
@@ -80,7 +80,7 @@ fun LayoutView(
                     max(startPoint!!.y, endPoint!!.y)
                 )
             ),
-            color = currentColor.color,
+            color = currentColor.value.color,
             isCircle = isCircle,
             isAbstract = shiftPressed.value,
         )
@@ -91,7 +91,7 @@ fun LayoutView(
         startPoint = null
         endPoint = null
         dragEnd = false
-        currentColor = nextColor()
+        currentColor.value = nextColor()
 
         onNewElement(newElement)
     }
@@ -158,7 +158,7 @@ fun LayoutView(
 
             endPoint?.let {
                 drawRect(
-                    color = currentColor.color.copy(alpha = 0.3f),
+                    color = currentColor.value.color.copy(alpha = 0.3f),
                     topLeft = Offset(
                         min(startPoint!!.x, endPoint!!.x),
                         min(startPoint!!.y, endPoint!!.y)

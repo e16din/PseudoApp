@@ -10,5 +10,6 @@ data class Element(
     val area: Rect,
     val color: Color,
     val isCircle: Boolean = true, // Circle\Rect
-    val isAbstract: Boolean = true // Real\Abstract
+    val isAbstract: Boolean = true, // Real\Abstract
+    val index:Int = -1
 )

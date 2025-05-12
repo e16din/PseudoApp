@@ -30,7 +30,7 @@ fun MainScreen() {
     val ctrlPressed = remember { mutableStateOf(false) }
     val shiftPressed = remember { mutableStateOf(false) }
     val newElement = remember { mutableStateOf<Element?>(null) }
-
+    var currentColor = remember { mutableStateOf(nextColor()) }
 
 
     LaunchedEffect(Unit) {
@@ -72,6 +72,7 @@ fun MainScreen() {
                     shiftPressed,
                     selectedImage,
                     elements,
+                    currentColor,
                     onNewElement = { element ->
                         newElement.value = element
                     },
@@ -85,7 +86,8 @@ fun MainScreen() {
             ) {
                 InstructionsEditorView(
                     elements,
-                    newElement
+                    newElement,
+                    currentColor
                 )
             }
         }

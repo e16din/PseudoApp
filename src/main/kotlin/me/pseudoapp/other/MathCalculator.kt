@@ -85,6 +85,7 @@ private fun addBrackets(data: String): String {
 
 fun calcMath(expression: String): String {
     val brackets = addBrackets(expression)
+    println("expression: $expression")
     println("brackets: $brackets")
     var result = calcInBrackets(brackets)
 
