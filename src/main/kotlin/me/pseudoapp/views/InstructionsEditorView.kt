@@ -25,13 +25,13 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import me.pseudoapp.Element
-import me.pseudoapp.other.calcInBrackets
 import me.pseudoapp.other.calcMath
 import me.pseudoapp.other.measureTextHeight
 
 @Composable
-fun InsructionsEditorView(
-    elements: SnapshotStateList<Element>
+fun InstructionsEditorView(
+    elements: SnapshotStateList<Element>,
+    newElement: State<Element>
 ) {
     val instructionsRequester = remember { FocusRequester() }
     var codeValue by remember { mutableStateOf(TextFieldValue()) }

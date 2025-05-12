@@ -82,7 +82,7 @@ fun MainScreen() {
                 Modifier.weight(1f)
                     .padding(12.dp)
             ) {
-                InsructionsEditorView(elements)
+                InstructionsEditorView(elements)
             }
         }
     }
