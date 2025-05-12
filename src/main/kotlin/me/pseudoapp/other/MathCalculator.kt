@@ -4,18 +4,20 @@ package me.pseudoapp.other
 // NOTE: Сначала добавляем затем называем
 
 fun main() {
-    val data = addBrackets("1+1*2*(2+4)*3 + (12+14/2)*2")
-    println(data)
+//    val data = addBrackets("1+1*2*(2+4)*3 + (12+14/2)*2")
+//    println(data)
     println("============= check: ")
     println((1 + ((((((1 * 2)) * (2 + 4))) * 3)) + (((12 + ((14 / 2))) * 2))))
     println("============= result: ")
 
 //    println(calcMath(data)
-//    println(calcMath(addBrackets("(1+2*2+(1-2*2+1+(1-5*2+(-4+2*5))))"))
-//    println(calcMath(addBrackets("2*2*(1-2)")))
-    println(calcMath("2*2*(1-2*(3+(48-51)))"))
-//    println(calcMath(addBrackets("1+1*2*(2+4)*3+(12+14/2)*2"))
+//    println(calcMath(("(1+2*2+(1-2*2+1+(1-5*2+(-4+2*5))))"))
+//    println(calcMath(("2*2*(1-2)")))
+//    println(calcMath("2*2*(1-2*(3+(48-51)))"))
+    println(calcMath("12/12*(9+1*(-1))*96"))
+//    println(calcMath(("1+1*2*(2+4)*3+(12+14/2)*2")))
 }
+
 
 private fun addBrackets(data: String): String {
     val source = if (data.first() != '(') {
@@ -82,7 +84,10 @@ private fun addBrackets(data: String): String {
 }
 
 fun calcMath(expression: String): String {
-    var result = calcInBrackets(addBrackets(expression))
+    val brackets = addBrackets(expression)
+    println("brackets: $brackets")
+    var result = calcInBrackets(brackets)
+
     if (result == "-0.0") {
         result = "0"
     }
@@ -91,27 +96,231 @@ fun calcMath(expression: String): String {
 }
 
 fun calcInBrackets(rowExpression: String): String {
-    if (rowExpression.isEmpty()) {
-        return rowExpression
+
+    val result = StringBuilder(
+        "(${rowExpression.replace(" ", "")})"
+    )
+    val digitsWithDot = "0123456789."
+
+    // 1. Сначала высчитываем то что в скобках
+    val ops = listOf('-', '+')
+    while (true) {
+        // идём вперед к первой закрывающей - это значит самая глубокая вложенность
+        val endIndex = result.positionOf(")")
+        if (endIndex == -1) {
+            break
+        }
+        // идём назад до ближайшей открывающей
+        val startIndex = result.positionOf(
+            "(",
+            startIndex = endIndex,
+            fromEndToStart = true
+        )
+
+        // 2. Вычисляем сложные операции (*, /, % и т.п.)
+
+        listOf('*', '/', '%').forEach { op ->
+            while (true) {
+                val endIndex0 = result.positionOf(")")
+                val opIndex = result.substring(0, endIndex0).positionOf("$op",
+                    startIndex + 1)
+                if (opIndex == -1) {
+                    break
+                }
+
+                var startIndex1 = result.positionOf(
+                    { !digitsWithDot.contains(it) },
+                    opIndex,
+                    fromEndToStart = true
+                )
+                if (startIndex1 == -1) {
+                    startIndex1 = 0
+                }
+                val endIndex1 = opIndex
+
+                var expression = result.substring(startIndex1 + 1, endIndex1) + op
+
+                val startIndex2 = opIndex + 1
+
+                var endIndex2 = result.positionOf(
+                    {
+                        !digitsWithDot.contains(it)
+                    }, opIndex + 1
+                )
+                if (endIndex2 == -1) {
+                    endIndex2 = result.length
+                }
+                expression += result.substring(startIndex2, endIndex2)
+
+                val calcResult = calcOperation(expression)
+
+                result.replace(startIndex1 + 1, endIndex2, "${calcResult}")
+            }
+        }
+
+        // 3. Вычисляем простые(бинарные) операции (+, -)
+        val end1 = result.positionOf(")")
+        var start1 = result.positionOf(
+            "(",
+            startIndex = end1,
+            fromEndToStart = true
+        )
+        if (start1 == -1) {
+            start1 = 0
+        }
+
+        val blockExpression = result.substring(start1 + 1, end1)
+        val calcResult = calcOperation(blockExpression.toString())
+
+        result.replace(start1 + 1, end1, calcResult.toString())
+
+        // 3. Убираем скобки
+        val end2 = result.positionOf(")")
+        var start2 = result.positionOf(
+            "(",
+            startIndex = end2,
+            fromEndToStart = true
+        )
+        if (start2 == -1) {
+            start2 = 0
+        }
+
+        result.replace(start2, start2 + 1, "")
+        val end3 = result.positionOf(")")
+
+        result.replace(end3, end3 + 1, "")
+
+        // 2. Затем переносим операцию за скобки
+//        2*(-1) -> -2*(1) встречая * двигается дальше
+//        2/(-1) -> -2/(1) встречая / двигается дальше
+//        2%(-1) -> -2%(1) встречая % двигается дальше
+
+//        2+(-1) -> 2-(1) встречая + остается собой
+//        2-(-1) -> 2+(1) встречая - меняется на противоположное
+
+        // NOTE: по сути + и - это true и false
+        // и следовательно подчиняются булевой логике при переносе знака
+        // и остаются собой при арифметических операциях-контейнерах
+        // (которые раскладывают число по контейнерам(умножают, делят и т.д.))
+
+        if (ops.contains(calcResult.toString()[0])) { // если + или - то переносим знак
+            val op = calcResult.toString()[0]
+            val notOp = ops.filter { it != op }
+            while (true) {
+                val index = result.positionOf("$op", start2)
+                if (index == -1) {
+                    break
+                }
+
+                // переносим знак до тех пор пока не встретим другой boolean-знак(+/-)
+                result.replace(index, index + 1, "") // удаляем знак
+                for (i in index downTo 0) {
+                    val c = result[i]
+
+                    when (c) {
+                        '+' -> {
+                            result.replace(i, i + 1, "$op") // оставляем знак
+                            break
+                        }
+
+                        '-' -> {
+                            result.replace(i, i + 1, "$notOp") // меняем знак
+                            break
+                        }
+                    }
+                    if (i == 0 && !ops.contains(c)) {
+                        result.insert(0, op)
+                    }
+                }
+            }
+        }
     }
 
-    val startIndex = rowExpression.lastIndexOf('(') + 1
-    val endIndex = rowExpression.indexOf(')', startIndex = startIndex)
+    return result.toString()
+}
 
-    val nextExpressionBlock = rowExpression.substring(startIndex, endIndex)
+fun CharSequence.positionOf(
+    data: String,
+    startIndex: Int = 0,
+//    endIndex: Int = 0,
+    fromEndToStart: Boolean = false
+): Int {
+    if (fromEndToStart) {
+        val partSize = data.length
+        var partIndex = startIndex - partSize
+        while (partIndex > if (partSize == 1) 0 else 1) { // обрабатываем и если нечетное
+            val part = this.substring(partIndex, partIndex + partSize)
+            if (part == data) {
+                return partIndex
+            }
 
-    val result = rowExpression.replaceRange(
-        startIndex - 1,
-        endIndex + 1,
-        "${calcOperation(nextExpressionBlock)}"
-    )
+            partIndex -= partSize
+        }
 
-    return if (result.indexOf('(') == -1) {
-        result
+        return -1
+
     } else {
-        calcInBrackets(result)
+        return this.indexOf(data, startIndex)
     }
 }
+
+fun CharSequence.positionOf(
+    check: (String) -> Boolean,
+    startIndex: Int = 0,
+    fromEndToStart: Boolean = false
+): Int {
+    val partSize = 1
+    if (fromEndToStart) {
+        var partIndex = startIndex - partSize
+        while (partIndex > if (partSize == 1) 0 else 1) {
+            val part = this.substring(partIndex, partIndex + partSize)
+            if (check(part)) {
+                return partIndex
+            }
+
+            partIndex -= partSize
+        }
+
+        return -1
+
+    } else { // this, data
+        var partIndex = startIndex
+        while (partIndex + partSize <= this.length - if (partSize == 1) 0 else 1) {
+            val part = this.substring(partIndex, partIndex + partSize)
+            if (check(part)) {
+                return partIndex
+            }
+
+            partIndex += partSize
+        }
+
+        return -1
+    }
+}
+
+//
+//fun calcInBrackets(rowExpression: String): String {
+//    if (rowExpression.isEmpty()) {
+//        return rowExpression
+//    }
+//
+//    val startIndex = rowExpression.lastIndexOf('(') + 1
+//    val endIndex = rowExpression.indexOf(')', startIndex = startIndex)
+//
+//    val nextExpressionBlock = rowExpression.substring(startIndex, endIndex)
+//
+//    val result = rowExpression.replaceRange(
+//        startIndex - 1,
+//        endIndex + 1,
+//        "${calcOperation(nextExpressionBlock)}"
+//    )
+//
+//    return if (result.indexOf('(') == -1) {
+//        result
+//    } else {
+//        calcInBrackets(result)
+//    }
+//}
 
 val allOps = listOf('*', '/', '%', '+', '-')
 private fun calcOperation(expression: String): Double {

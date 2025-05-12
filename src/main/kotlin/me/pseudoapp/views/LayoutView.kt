@@ -82,7 +82,7 @@ fun LayoutView(
             ),
             color = currentColor.color,
             isCircle = isCircle,
-            isFilled = shiftPressed.value,
+            isAbstract = shiftPressed.value,
         )
         elements.add(
             newElement
@@ -176,7 +176,7 @@ fun LayoutView(
                         color = element.color,
                         center = element.area.center,
                         radius = element.area.size.width / 2,
-                        style = if (element.isFilled) Fill else Stroke(width = 2f)
+                        style = if (element.isAbstract) Fill else Stroke(width = 2f)
                     )
 
                 } else {
@@ -185,7 +185,7 @@ fun LayoutView(
                         topLeft = element.area.topLeft,
                         size = element.area.size,
                         cornerRadius = CornerRadius(2f, 2f),
-                        style = if (element.isFilled) Fill else Stroke(width = 2f)
+                        style = if (element.isAbstract) Fill else Stroke(width = 2f)
                     )
                 }
 

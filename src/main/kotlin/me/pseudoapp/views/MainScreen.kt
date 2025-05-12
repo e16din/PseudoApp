@@ -29,6 +29,7 @@ fun MainScreen() {
 
     val ctrlPressed = remember { mutableStateOf(false) }
     val shiftPressed = remember { mutableStateOf(false) }
+    val newElement = remember { mutableStateOf<Element?>(null) }
 
 
 
@@ -72,7 +73,7 @@ fun MainScreen() {
                     selectedImage,
                     elements,
                     onNewElement = { element ->
-
+                        newElement.value = element
                     },
                     modifier = Modifier
                 )
@@ -82,7 +83,10 @@ fun MainScreen() {
                 Modifier.weight(1f)
                     .padding(12.dp)
             ) {
-                InstructionsEditorView(elements)
+                InstructionsEditorView(
+                    elements,
+                    newElement
+                )
             }
         }
     }
