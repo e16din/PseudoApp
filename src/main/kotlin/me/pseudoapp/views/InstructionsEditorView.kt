@@ -215,8 +215,7 @@ fun updateValues(code: String, elements: SnapshotStateList<Element>) {
     val source = StringBuilder(code)
     val lines = source.split("\n")
     lines.forEachIndexed { i, line ->
-
-        // если нашли знак = и справа от него - словарь:имя,
+        // если нашли знак = и справа от него имя,
         // то наполняем словарь тем что слева от =
         val index = line.lastIndexOf("=")
 
@@ -333,6 +332,29 @@ fun updateValues(code: String, elements: SnapshotStateList<Element>) {
                     startMathIndex = valueLine.indexOf("{", endMathIndex + 1)
                     endMathIndex = valueLine.indexOf("}", endMathIndex + 1)
                 }
+
+                // высчитываем и подставляем операции со строками/массивами
+//                [!]abcd
+                val startArrayOpIndex = valueLine.indexOf("[")
+                val endArrayOpIndex = valueLine.indexOf("]")
+
+                val startArrayIndex = endArrayOpIndex + 1
+                var endArrayIndex = valueLine.positionOf({
+                    ends.contains(it)
+                }, startArrayIndex)
+                if (endArrayIndex == -1) {
+                    endArrayIndex = valueLine.length
+                }
+
+                if (startArrayOpIndex != -1 && endArrayOpIndex != -1) {
+                    val op = valueLine.substring(startArrayOpIndex + 1, endArrayOpIndex)
+                    val value = valueLine.substring(startArrayIndex, endArrayIndex)
+                    when (op) {
+                        "!" -> valueLine.replace(startArrayOpIndex, endArrayIndex, value.toString().reversed())
+                    }
+
+                }
+
                 calculatedLines += valueLine.toString() + "\n"
             }
             left = calculatedLines
@@ -359,7 +381,7 @@ fun updateValues(code: String, elements: SnapshotStateList<Element>) {
                 } else {
                     // добавление новой абстракции
                     val x = layoutRect.width - (100f * abstractionsColumns)
-                    val y = abstractionsRows * 80f + 10f + 6*abstractionsRows
+                    val y = abstractionsRows * 80f + 10f + 6 * abstractionsRows
 
                     val abstractElement = Element(
                         name = elementName,
@@ -401,6 +423,16 @@ fun updateValues(code: String, elements: SnapshotStateList<Element>) {
     }
     println("namesMap: ${namesMap}")
     val removed = elements.filter { !namesMap.values.contains(it.name) }
+
+    repeat(removed.size) { i ->
+        if (abstractionsRows > 0) {
+            abstractionsRows -= 1
+        } else {
+            abstractionsRows = 6
+            abstractionsColumns -= 1
+        }
+    }
+
     println("elements: ${elements.map { it.name }}")
     println("removed: ${removed}")
     elements.removeAll(removed)
