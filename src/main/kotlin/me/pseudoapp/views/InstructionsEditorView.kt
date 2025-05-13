@@ -25,8 +25,11 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import me.pseudoapp.Element
+import me.pseudoapp.currentColor
+import me.pseudoapp.nextColor
 import me.pseudoapp.other.calcMath
 import me.pseudoapp.other.measureTextHeight
+import me.pseudoapp.other.positionOf
 
 const val unknown = "?"
 
@@ -34,217 +37,17 @@ const val unknown = "?"
 fun InstructionsEditorView(
     elements: SnapshotStateList<Element>,
     newElement: State<Element?>,
-    currentColor: MutableState<RainbowColor>
 ) {
     val instructionsRequester = remember { FocusRequester() }
     var codeValue by remember { mutableStateOf(TextFieldValue()) }
+
 //    var isElementInserted by remember { mutableStateOf(false) }
     var isCodeCompletionEnabled by remember { mutableStateOf(false) }
     var textFieldPosition by remember { mutableStateOf(Offset.Zero) } // позиция TextField на экране
     var cursorOffsetInTextField by remember { mutableStateOf(Offset.Zero) } // позиция курсора внутри TextField
 
     var layoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
-    val namesMap = remember { mutableMapOf<Int, String>() }// <Index, Name>
     val textStyle = TextStyle.Default
-
-    fun calc(data: String): String { // simple implementation
-        return try {
-            calcMath(data)
-        } catch (e: Exception) {
-            e.printStackTrace()
-            unknown
-        }
-    }
-
-    fun updateValues() {
-        // detect value changed
-        val source = StringBuilder(codeValue.text)
-        val lines = source.split("\n")
-        lines.forEachIndexed { i, line ->
-
-            // если нашли знак = и справа от него - словарь:имя,
-            // то наполняем словарь тем что слева от =
-            val index = line.lastIndexOf("=")
-
-            if (index != -1
-                && line.trim().length > 1
-                && index < line.length - 1
-            ) {
-                var left = line.substring(0, index)
-                val right = line.substring(index + 1, line.length).trim()
-
-                var totalTextIndex = 0
-                var pointer = i - 1
-                while (pointer >= 0) {
-                    totalTextIndex += lines[pointer].length + 1
-                    pointer--
-                }
-                totalTextIndex += index + 1
-
-                namesMap.firstNotNullOfOrNull {
-                    if (it.value == right && it.key != totalTextIndex)
-                        it
-                    else
-                        null
-                }?.let {
-                    namesMap.remove(it.key)
-                }
-                namesMap[totalTextIndex] = right
-
-                if (left.trim() == "}") {
-                    var closedBracketIndex = 0
-                    var pointer = i - 1
-                    while (pointer >= 0) {
-                        closedBracketIndex += lines[pointer].length + 1
-                        pointer--
-                    }
-
-                    var i = closedBracketIndex - 1
-                    var counter = 1
-                    while (counter > 0 && i >= 0) {
-                        when {
-                            source[i] == '}' -> counter++
-                            source[i] == '{' -> counter--
-                        }
-                        i--
-                    }
-
-                    val openBracketIndex = i + 1
-//                    var lineIndex = source.indexOf("\n", start)
-//                    while (lineIndex != -1 && lineIndex <= end) {
-//                        source.insert(lineIndex + 1, "    ")
-//                        lineIndex = source.indexOf("\n", lineIndex+1)
-//                        end = source.indexOf("}", start)
-//                    }
-//
-//                    codeValue = TextFieldValue(
-//                        text = source.toString(),
-//                        selection = TextRange(0),
-//                    )
-
-                    left = source.substring(openBracketIndex + 1, closedBracketIndex)
-                }
-
-                var calculated = ""
-                left.split("\n").forEach { leftLine ->
-                    val lineCalculated = StringBuilder(leftLine)
-                    var startMathIndex = lineCalculated.indexOf("{", 0)
-                    var endMathIndex = lineCalculated.indexOf("}", 0)
-                    if (startMathIndex != -1 && endMathIndex != -1 && startMathIndex != endMathIndex - 1) {
-
-                        while (startMathIndex != -1 && endMathIndex != -1) {
-                            if (startMathIndex + 1 != endMathIndex) {
-                                val value = StringBuilder(lineCalculated.substring(startMathIndex + 1, endMathIndex))
-
-                                elements.sortedByDescending { it.name.length } // для того чтобы R не подставлялся в Result
-                                    .forEach {
-                                        val nameIndex = value.indexOf(it.name)
-                                        val elementValue = it.value.trim().replace("\n", "")
-                                        if (nameIndex != -1 && elementValue != unknown) {
-                                            value.replace(nameIndex, nameIndex + it.name.length, elementValue)
-                                        }
-                                    }
-
-                                val calcResult = calc(value.toString())
-                                lineCalculated.replace(
-                                    startMathIndex, endMathIndex + 1,
-                                    calcResult
-                                )
-                            }
-
-                            startMathIndex = lineCalculated.indexOf("{", endMathIndex + 1)
-                            endMathIndex = lineCalculated.indexOf("}", endMathIndex + 1)
-                        }
-
-                        calculated += lineCalculated.toString() + "\n"
-
-                    } else {
-                        calculated += leftLine + "\n"
-                    }
-
-                }
-                left = calculated
-
-                val name = right.trim()
-                val value = left
-                val elementIndex = elements.indexOfFirst {
-                    it.name == name
-                }
-
-                if(elementIndex != -1) {
-                    elements[elementIndex] = elements[elementIndex].copy(value = value, index = totalTextIndex)
-
-                } else {
-                    // ренэйм элемента,
-                    //  чтобы при редактировании не создавалось куча новых элементов
-                    val editedElementIndex = elements.indexOfFirst { it.index == totalTextIndex }
-
-                    if (editedElementIndex != -1) {
-                        elements[editedElementIndex] = elements[editedElementIndex].copy(name = name, value = value)
-
-                    } else {
-                        // добавление новой абстракции
-                        elements.add(
-                            Element(
-                                name = name,
-                                value = value,
-                                area = Rect(
-                                    Offset(100f, 100f),
-                                    Offset(
-                                        300f, 300f
-                                    )
-                                ),
-                                color = currentColor.value.color,
-                                isCircle = false,
-                                isAbstract = true,
-                                index = totalTextIndex
-                            )
-                        )
-                    }
-                    currentColor.value = nextColor()
-                }
-            }
-
-
-
-            // это именование/добавление в словарь/создание функции
-            // x = {1+1} = etc & "blablabla" = RedCircle
-
-            // # это много-линейный блок
-            // {
-            // x = {1+1}
-            // = etc
-            //
-            // &
-            //
-            // "blablabla"
-            //
-            // } = RedCircle
-
-            // # цикл
-            // 0 = i
-            // i > 12 ?
-            // yes -> do
-            // no -> i+1 = i # присвоение пересчитывает все инструкции в блоке с таким же названием
-        }
-
-        // очистка мусора :)
-        // элементы которые мы удалили в коде - удаляем и на макете
-        var i = 0
-        while(i<namesMap.entries.size) {
-            val it = namesMap.entries.toList()[i]
-            if (!source.contains(it.value) || it.value.trim().isEmpty()) {
-                namesMap.remove(it.key)
-            }
-            i++
-        }
-        println("namesMap: ${namesMap}")
-        val removed = elements.filter { !namesMap.values.contains(it.name) }
-        println("elements: ${elements.map { it.name }}")
-        println("removed: ${removed}")
-        elements.removeAll(removed)
-        println("elements: ${elements.map { it.name }}")
-    }
 
     LaunchedEffect(newElement.value) {
         if (newElement.value == null) return@LaunchedEffect
@@ -255,7 +58,7 @@ fun InstructionsEditorView(
             selection = TextRange(newText.length)
         )
 
-        updateValues()
+        updateValues(codeValue.text, elements)
     }
 
     @Composable
@@ -348,15 +151,12 @@ fun InstructionsEditorView(
                     }
 
                     isCodeCompletionEnabled = true
-//                    if(!isFormatting) {
 
                     try {
-                        updateValues()
+                        updateValues(codeValue.text, elements)
                     } catch (e: Exception) {
                         e.printStackTrace()
                     }
-
-//                    }
 
                 }, onTextLayout = { result ->
                     layoutResult = result
@@ -377,4 +177,241 @@ fun InstructionsEditorView(
             }
         }
     }
+}
+
+
+//                    var lineIndex = source.indexOf("\n", start)
+//                    while (lineIndex != -1 && lineIndex <= end) {
+//                        source.insert(lineIndex + 1, "    ")
+//                        lineIndex = source.indexOf("\n", lineIndex+1)
+//                        end = source.indexOf("}", start)
+//                    }
+//
+//                    codeValue = TextFieldValue(
+//                        text = source.toString(),
+//                        selection = TextRange(0),
+//                    )
+
+val namesMap = mutableMapOf<Int, String>() // <Index, Name>
+val ends = listOf(
+    "$", " ", "=", "{", "(", ",", ";", "\n", "\t"
+)
+
+fun updateValues(code: String, elements: SnapshotStateList<Element>) {
+
+    fun calc(data: String): String {
+        return try {
+            calcMath(data)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            unknown
+        }
+    }
+
+    // detect value changed
+    val source = StringBuilder(code)
+    val lines = source.split("\n")
+    lines.forEachIndexed { i, line ->
+
+        // если нашли знак = и справа от него - словарь:имя,
+        // то наполняем словарь тем что слева от =
+        val index = line.lastIndexOf("=")
+
+        if (index != -1
+            && line.trim().length > 1
+            && index < line.length - 1
+        ) {
+            var left = line.substring(0, index)
+            val right = line.substring(index + 1, line.length).trim()
+
+            var totalTextIndex = 0
+            var pointer = i - 1
+            while (pointer >= 0) {
+                totalTextIndex += lines[pointer].length + 1
+                pointer--
+            }
+            totalTextIndex += index + 1
+
+            namesMap.firstNotNullOfOrNull {
+                if (it.value == right && it.key != totalTextIndex)
+                    it
+                else
+                    null
+            }?.let {
+                namesMap.remove(it.key)
+            }
+            namesMap[totalTextIndex] = right
+
+            if (left.trim() == "}") {
+                var closedBracketIndex = 0
+                var pointer = i - 1
+                while (pointer >= 0) {
+                    closedBracketIndex += lines[pointer].length + 1
+                    pointer--
+                }
+
+                var i = closedBracketIndex - 1
+                var counter = 1
+                while (counter > 0 && i >= 0) {
+                    when {
+                        source[i] == '}' -> counter++
+                        source[i] == '{' -> counter--
+                    }
+                    i--
+                }
+
+                val openBracketIndex = i + 1
+
+                left = source.substring(openBracketIndex + 1, closedBracketIndex)
+            }
+
+            var calculatedLines = ""
+            left.split("\n").forEach { leftLine ->
+                val valueLine = StringBuilder(leftLine)
+
+                // подставляем значения по имени
+                var startValueIndex = valueLine.indexOf("$")
+                var endValueIndex = valueLine.positionOf({
+                    ends.contains(it)
+                }, startValueIndex + 1)
+                if (endValueIndex == -1) {
+                    endValueIndex = valueLine.length
+                }
+                while (startValueIndex != -1) {
+                    if (startValueIndex + 1 != endValueIndex) {
+
+                        val value = StringBuilder(valueLine.substring(startValueIndex + 1, endValueIndex))
+
+
+                        elements.sortedByDescending { it.name.length } // для того чтобы R не подставлялся в Result
+                            .forEach {
+                                val nameIndex = value.indexOf(it.name)
+                                val elementValue = it.value.trim().replace("\n", "")
+
+                                if (nameIndex != -1 && elementValue != unknown) {
+                                    value.replace(nameIndex, nameIndex + it.name.length, "")
+                                    value.insert(nameIndex, elementValue)
+                                }
+                            }
+
+                        valueLine.replace(
+                            startValueIndex, endValueIndex + 1, value.toString()
+                        )
+                    }
+                    startValueIndex = valueLine.indexOf("$", endValueIndex + 1)
+                    endValueIndex = valueLine.positionOf({
+                        ends.contains(it)
+                    }, endValueIndex + 1)
+                }
+
+                // высчитываем и подставляем математические операции
+                var startMathIndex = valueLine.indexOf("{", 0)
+                var endMathIndex = valueLine.indexOf("}", 0)
+                while (startMathIndex != -1 && endMathIndex != -1) {
+                    if (startMathIndex + 1 != endMathIndex) {
+                        val value = StringBuilder(valueLine.substring(startMathIndex + 1, endMathIndex))
+
+                        elements.sortedByDescending { it.name.length } // для того чтобы R не подставлялся в Result
+                            .forEach {
+                                val nameIndex = value.indexOf(it.name)
+                                val elementValue = it.value.trim().replace("\n", "")
+                                if (nameIndex != -1 && elementValue != unknown) {
+                                    value.replace(nameIndex, nameIndex + it.name.length, elementValue)
+                                }
+                            }
+
+                        val calcResult = calc(value.toString())
+                        valueLine.replace(
+                            startMathIndex, endMathIndex + 1,
+                            calcResult
+                        )
+                    }
+
+                    startMathIndex = valueLine.indexOf("{", endMathIndex + 1)
+                    endMathIndex = valueLine.indexOf("}", endMathIndex + 1)
+                }
+                calculatedLines += valueLine.toString() + "\n"
+            }
+            left = calculatedLines
+
+
+            val elementName = right.trim()
+            val elementValue = left
+            val elementIndex = elements.indexOfFirst {
+                it.name == elementName
+            }
+
+            if (elementIndex != -1) {
+                elements[elementIndex] = elements[elementIndex].copy(value = elementValue, index = totalTextIndex)
+
+            } else {
+                // ренэйм элемента,
+                //  чтобы при редактировании не создавалось куча новых элементов
+                val editedElementIndex = elements.indexOfFirst { it.index == totalTextIndex }
+
+                if (editedElementIndex != -1) {
+                    elements[editedElementIndex] =
+                        elements[editedElementIndex].copy(name = elementName, value = elementValue)
+
+                } else {
+                    // добавление новой абстракции
+                    elements.add(
+                        Element(
+                            name = elementName,
+                            value = elementValue,
+                            area = Rect(
+                                Offset(100f, 100f),
+                                Offset(
+                                    300f, 300f
+                                )
+                            ),
+                            color = currentColor.color,
+                            isCircle = false,
+                            isAbstract = true,
+                            index = totalTextIndex
+                        )
+                    )
+                }
+                currentColor = nextColor()
+            }
+        }
+
+
+        // это именование/добавление в словарь/создание функции
+        // x = {1+1} = etc & "blablabla" = RedCircle
+
+        // # это много-линейный блок
+        // {
+        // x = {1+1}
+        // = etc
+        //
+        // &
+        //
+        // "blablabla"
+        //
+        // } = RedCircle
+
+        // # цикл
+        // 0 = i
+        // i > 12 ?
+        // yes -> do
+        // no -> i+1 = i # присвоение пересчитывает все инструкции в блоке с таким же названием
+    }
+
+    // сборка мусора :)
+    // элементы которые мы удалили в коде - удаляем и на макете
+    var i = 0
+    while (i < namesMap.entries.size) {
+        val it = namesMap.entries.toList()[i]
+        if (!source.contains(it.value) || it.value.trim().isEmpty()) {
+            namesMap.remove(it.key)
+        }
+        i++
+    }
+    println("namesMap: ${namesMap}")
+    val removed = elements.filter { !namesMap.values.contains(it.name) }
+    println("elements: ${elements.map { it.name }}")
+    println("removed: ${removed}")
+    elements.removeAll(removed)
+    println("elements: ${elements.map { it.name }}")
 }

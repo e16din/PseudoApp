@@ -27,6 +27,9 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import me.pseudoapp.Element
+import me.pseudoapp.RainbowColor
+import me.pseudoapp.currentColor
+import me.pseudoapp.nextColor
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
@@ -38,7 +41,6 @@ fun LayoutView(
     shiftPressed: MutableState<Boolean>,
     selectedImage: ImageBitmap?,
     elements: SnapshotStateList<Element>,
-    currentColor: MutableState<RainbowColor>,
     onNewElement: (Element) -> Unit,
     modifier: Modifier
 ) {
@@ -55,7 +57,7 @@ fun LayoutView(
 
         val isCircle = !ctrlPressed.value
 
-        var name = currentColor.value.name
+        var name = currentColor.name
 
         name += if (isCircle) {
             "Circle"
@@ -80,7 +82,7 @@ fun LayoutView(
                     max(startPoint!!.y, endPoint!!.y)
                 )
             ),
-            color = currentColor.value.color,
+            color = currentColor.color,
             isCircle = isCircle,
             isAbstract = shiftPressed.value,
         )
@@ -89,7 +91,7 @@ fun LayoutView(
         startPoint = null
         endPoint = null
         dragEnd = false
-        currentColor.value = nextColor()
+        currentColor = nextColor()
 
         onNewElement(newElement)
     }
@@ -154,7 +156,7 @@ fun LayoutView(
 
             endPoint?.let {
                 drawRect(
-                    color = currentColor.value.color.copy(alpha = 0.3f),
+                    color = currentColor.color.copy(alpha = 0.3f),
                     topLeft = Offset(
                         min(startPoint!!.x, endPoint!!.x),
                         min(startPoint!!.y, endPoint!!.y)
@@ -215,27 +217,6 @@ fun LayoutView(
                     ),
                 )
             }
-        }
-    }
-}
-
-enum class RainbowColor(val color: Color) {
-    Red(Color(0xFFF44336)),
-    Orange(Color(0xFFFF9800)),
-    Yellow(Color(0xFFFFEB3B)),
-    Green(Color(0xFF4CAF50)),
-    Blue(Color(0xFF2196F3)),
-    Indigo(Color(0xFF3F51B5)),
-    Violet(Color(0xFF9C27B0)),
-}
-
-var colorPosition = 0
-
-fun nextColor(): RainbowColor {
-    return RainbowColor.entries[colorPosition].apply {
-        colorPosition += 1
-        if (colorPosition == RainbowColor.entries.size) {
-            colorPosition = 0
         }
     }
 }
