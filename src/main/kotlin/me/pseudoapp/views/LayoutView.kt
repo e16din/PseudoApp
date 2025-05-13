@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.*
 import androidx.compose.runtime.snapshots.SnapshotStateList
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -19,6 +20,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInParent
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
@@ -29,6 +31,8 @@ import androidx.compose.ui.unit.sp
 import me.pseudoapp.Element
 import me.pseudoapp.RainbowColor
 import me.pseudoapp.currentColor
+import me.pseudoapp.layoutRect
+import me.pseudoapp.windowSize
 import me.pseudoapp.nextColor
 import kotlin.math.abs
 import kotlin.math.max
@@ -44,7 +48,6 @@ fun LayoutView(
     onNewElement: (Element) -> Unit,
     modifier: Modifier
 ) {
-
     var startPoint by remember { mutableStateOf<Offset?>(null) }
     var endPoint by remember { mutableStateOf<Offset?>(null) }
 
@@ -111,6 +114,7 @@ fun LayoutView(
                         topLeft.y + coordinates.size.height.toFloat()
                     )
                 )
+                layoutRect = rootRect
             }
 
     ) {

@@ -3,7 +3,11 @@ package me.pseudoapp
 import androidx.compose.desktop.ui.tooling.preview.Preview
 import androidx.compose.material.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.ExperimentalComposeUiApi
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalWindowInfo
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import me.pseudoapp.views.MainScreen
@@ -21,9 +25,11 @@ import me.pseudoapp.views.MainScreen
 
 // количество ошибок можно снизить если не работать с фактическими результатами, а не воображаемыми
 
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 @Preview
 fun App() {
+    windowSize = LocalWindowInfo.current.containerSize
     MaterialTheme {
         MainScreen()
     }
@@ -35,7 +41,8 @@ fun main() = application {
     }
 }
 
-
+var windowSize = IntSize.Zero
+var layoutRect = Rect.Zero
 var currentColor = RainbowColor.Violet
 
 enum class RainbowColor(val color: Color) {

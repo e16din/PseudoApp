@@ -26,6 +26,7 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import me.pseudoapp.Element
 import me.pseudoapp.currentColor
+import me.pseudoapp.layoutRect
 import me.pseudoapp.nextColor
 import me.pseudoapp.other.calcMath
 import me.pseudoapp.other.measureTextHeight
@@ -196,6 +197,8 @@ val namesMap = mutableMapOf<Int, String>() // <Index, Name>
 val ends = listOf(
     "$", " ", "=", "{", "(", ",", ";", "\n", "\t"
 )
+var abstractionsRows = 0
+var abstractionsColumns = 1
 
 fun updateValues(code: String, elements: SnapshotStateList<Element>) {
 
@@ -355,47 +358,35 @@ fun updateValues(code: String, elements: SnapshotStateList<Element>) {
 
                 } else {
                     // добавление новой абстракции
-                    elements.add(
-                        Element(
-                            name = elementName,
-                            value = elementValue,
-                            area = Rect(
-                                Offset(100f, 100f),
-                                Offset(
-                                    300f, 300f
-                                )
-                            ),
-                            color = currentColor.color,
-                            isCircle = false,
-                            isAbstract = true,
-                            index = totalTextIndex
-                        )
+                    val x = layoutRect.width - (100f * abstractionsColumns)
+                    val y = abstractionsRows * 80f + 10f + 6*abstractionsRows
+
+                    val abstractElement = Element(
+                        name = elementName,
+                        value = elementValue,
+                        area = Rect(
+                            Offset(x, y),
+                            Offset(
+                                x + 80f, y + 80f
+                            )
+                        ),
+                        color = currentColor.color,
+                        isCircle = false,
+                        isAbstract = true,
+                        index = totalTextIndex
                     )
+
+                    abstractionsRows += 1
+                    if (abstractionsRows == 7) {
+                        abstractionsRows = 0
+                        abstractionsColumns += 1
+                    }
+
+                    elements.add(abstractElement)
                 }
                 currentColor = nextColor()
             }
         }
-
-
-        // это именование/добавление в словарь/создание функции
-        // x = {1+1} = etc & "blablabla" = RedCircle
-
-        // # это много-линейный блок
-        // {
-        // x = {1+1}
-        // = etc
-        //
-        // &
-        //
-        // "blablabla"
-        //
-        // } = RedCircle
-
-        // # цикл
-        // 0 = i
-        // i > 12 ?
-        // yes -> do
-        // no -> i+1 = i # присвоение пересчитывает все инструкции в блоке с таким же названием
     }
 
     // сборка мусора :)
