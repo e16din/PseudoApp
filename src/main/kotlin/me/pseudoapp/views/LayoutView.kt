@@ -84,9 +84,7 @@ fun LayoutView(
             isCircle = isCircle,
             isAbstract = shiftPressed.value,
         )
-        elements.add(
-            newElement
-        )
+        elements.add(newElement)
 
         startPoint = null
         endPoint = null
@@ -121,8 +119,6 @@ fun LayoutView(
                     detectDragGestures(
                         onDragStart = { offset ->
                             startPoint = offset
-                            println("onDragStart")
-                            println("$startPoint")
                         },
                         onDrag = { change, dragAmount ->
                             change.consume()

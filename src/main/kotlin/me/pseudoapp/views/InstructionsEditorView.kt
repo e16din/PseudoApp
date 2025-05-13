@@ -23,7 +23,6 @@ import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.TextFieldValue
-import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import me.pseudoapp.Element
 import me.pseudoapp.other.calcMath
@@ -43,20 +42,10 @@ fun InstructionsEditorView(
     var isCodeCompletionEnabled by remember { mutableStateOf(false) }
     var textFieldPosition by remember { mutableStateOf(Offset.Zero) } // позиция TextField на экране
     var cursorOffsetInTextField by remember { mutableStateOf(Offset.Zero) } // позиция курсора внутри TextField
-    var textFieldSize by remember { mutableStateOf(IntSize.Zero) }
+
     var layoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
     val namesMap = remember { mutableMapOf<Int, String>() }// <Index, Name>
     val textStyle = TextStyle.Default
-
-    LaunchedEffect(newElement.value) {
-        if (newElement.value == null) return@LaunchedEffect
-
-        val newText = codeValue.text + "\n = ${newElement.value!!.name}\n"
-        codeValue = TextFieldValue(
-            text = newText,
-            selection = TextRange(newText.length)
-        )
-    }
 
     fun calc(data: String): String { // simple implementation
         return try {
@@ -68,9 +57,6 @@ fun InstructionsEditorView(
     }
 
     fun updateValues() {
-        if (codeValue.text.length < 1) {
-            return
-        }
         // detect value changed
         val source = StringBuilder(codeValue.text)
         val lines = source.split("\n")
@@ -84,11 +70,9 @@ fun InstructionsEditorView(
                 && line.trim().length > 1
                 && index < line.length - 1
             ) {
-                println("x3")
                 var left = line.substring(0, index)
-                println("x4")
                 val right = line.substring(index + 1, line.length).trim()
-                println("x5")
+
                 var totalTextIndex = 0
                 var pointer = i - 1
                 while (pointer >= 0) {
@@ -106,7 +90,6 @@ fun InstructionsEditorView(
                     namesMap.remove(it.key)
                 }
                 namesMap[totalTextIndex] = right
-                println("right: $right")
 
                 if (left.trim() == "}") {
                     var closedBracketIndex = 0
@@ -115,7 +98,6 @@ fun InstructionsEditorView(
                         closedBracketIndex += lines[pointer].length + 1
                         pointer--
                     }
-                    println("endBracketIndex: $closedBracketIndex")
 
                     var i = closedBracketIndex - 1
                     var counter = 1
@@ -142,7 +124,6 @@ fun InstructionsEditorView(
 
                     left = source.substring(openBracketIndex + 1, closedBracketIndex)
                 }
-                println("left a: $left")
 
                 var calculated = ""
                 left.split("\n").forEach { leftLine ->
@@ -153,29 +134,22 @@ fun InstructionsEditorView(
 
                         while (startMathIndex != -1 && endMathIndex != -1) {
                             if (startMathIndex + 1 != endMathIndex) {
-                                println("x1")
                                 val value = StringBuilder(lineCalculated.substring(startMathIndex + 1, endMathIndex))
 
                                 elements.sortedByDescending { it.name.length } // для того чтобы R не подставлялся в Result
                                     .forEach {
-                                        println("it.name: ${it.name}")
                                         val nameIndex = value.indexOf(it.name)
                                         val elementValue = it.value.trim().replace("\n", "")
                                         if (nameIndex != -1 && elementValue != unknown) {
-                                            println("it.valuevalue: $elementValue")
                                             value.replace(nameIndex, nameIndex + it.name.length, elementValue)
-                                            println("value3: $value")
                                         }
                                     }
-                                println("value4: $value")
 
                                 val calcResult = calc(value.toString())
-                                println("calcResult: $calcResult")
                                 lineCalculated.replace(
                                     startMathIndex, endMathIndex + 1,
                                     calcResult
                                 )
-                                println("lineCalculated: $lineCalculated")
                             }
 
                             startMathIndex = lineCalculated.indexOf("{", endMathIndex + 1)
@@ -193,19 +167,20 @@ fun InstructionsEditorView(
 
                 val name = right.trim()
                 val value = left
-                val element = elements.firstOrNull { it.name == name }
+                val elementIndex = elements.indexOfFirst {
+                    it.name == name
+                }
 
-                element?.let {
-                    elements.remove(element)
-                    elements.add(element.copy(value = value, index = totalTextIndex))
-                } ?: run {
+                if(elementIndex != -1) {
+                    elements[elementIndex] = elements[elementIndex].copy(value = value, index = totalTextIndex)
+
+                } else {
                     // ренэйм элемента,
                     //  чтобы при редактировании не создавалось куча новых элементов
-                    val editedElement = elements.firstOrNull { it.index == totalTextIndex }
+                    val editedElementIndex = elements.indexOfFirst { it.index == totalTextIndex }
 
-                    if (editedElement != null) {
-                        elements.remove(editedElement)
-                        elements.add(editedElement.copy(name = name, value = value))
+                    if (editedElementIndex != -1) {
+                        elements[editedElementIndex] = elements[editedElementIndex].copy(name = name, value = value)
 
                     } else {
                         // добавление новой абстракции
@@ -228,20 +203,9 @@ fun InstructionsEditorView(
                     }
                     currentColor.value = nextColor()
                 }
-
-                // очистка мусора :)
-                // элементы которые мы удалили в коде - удаляем и на макете
-                for (it in namesMap) {
-                    if (!source.contains(it.value)) {
-                        namesMap.remove(it.key)
-                    }
-                }
-                println("namesMap: ${namesMap}")
-                val removed = elements.filter { !namesMap.values.contains(it.name) }
-                println("elements: ${elements.map { it.name }}")
-                println("removed: ${removed}")
-                elements.removeAll(removed)
             }
+
+
 
             // это именование/добавление в словарь/создание функции
             // x = {1+1} = etc & "blablabla" = RedCircle
@@ -263,6 +227,35 @@ fun InstructionsEditorView(
             // yes -> do
             // no -> i+1 = i # присвоение пересчитывает все инструкции в блоке с таким же названием
         }
+
+        // очистка мусора :)
+        // элементы которые мы удалили в коде - удаляем и на макете
+        var i = 0
+        while(i<namesMap.entries.size) {
+            val it = namesMap.entries.toList()[i]
+            if (!source.contains(it.value) || it.value.trim().isEmpty()) {
+                namesMap.remove(it.key)
+            }
+            i++
+        }
+        println("namesMap: ${namesMap}")
+        val removed = elements.filter { !namesMap.values.contains(it.name) }
+        println("elements: ${elements.map { it.name }}")
+        println("removed: ${removed}")
+        elements.removeAll(removed)
+        println("elements: ${elements.map { it.name }}")
+    }
+
+    LaunchedEffect(newElement.value) {
+        if (newElement.value == null) return@LaunchedEffect
+
+        val newText = codeValue.text + "\n = ${newElement.value!!.name}\n"
+        codeValue = TextFieldValue(
+            text = newText,
+            selection = TextRange(newText.length)
+        )
+
+        updateValues()
     }
 
     @Composable
@@ -377,7 +370,6 @@ fun InstructionsEditorView(
                 modifier = Modifier.fillMaxSize().focusRequester(instructionsRequester)
                     .onGloballyPositioned { coordinates ->
                         textFieldPosition = coordinates.positionInParent()
-                        textFieldSize = coordinates.size
                     })
 
             if (isCodeCompletionEnabled) {
