@@ -28,9 +28,11 @@ import me.pseudoapp.Element
 import me.pseudoapp.currentColor
 import me.pseudoapp.layoutRect
 import me.pseudoapp.nextColor
+import me.pseudoapp.other.Experiments.isDigitsOnly
 import me.pseudoapp.other.calcMath
 import me.pseudoapp.other.measureTextHeight
 import me.pseudoapp.other.positionOf
+import kotlin.math.abs
 
 const val unknown = "?"
 
@@ -349,11 +351,30 @@ fun updateValues(code: String, elements: SnapshotStateList<Element>) {
                 if (startArrayOpIndex != -1 && endArrayOpIndex != -1) {
                     val op = valueLine.substring(startArrayOpIndex + 1, endArrayOpIndex)
                     val value = valueLine.substring(startArrayIndex, endArrayIndex)
-                    when (op) {
-                        "!" -> valueLine.replace(startArrayOpIndex, endArrayIndex, value.toString().reversed())
-                    }
+                    when {
+                        // высчитываем и подставляем операции со строками/массивами
+//                      [!]abcd
+                        op == "!" -> valueLine.replace(startArrayOpIndex, endArrayIndex, value.toString().reversed())
+                        // копируем элемент по номеру места
+//                      [2]abcd
+                        op.isDigitsOnly() -> valueLine.replace(
+                            startArrayOpIndex,
+                            endArrayIndex,
+                            "${value.toString()[op.toInt()-1]}" // счет начинается с 1-го
+                        )
+                        // удаляем элемент по номеру места
+//                      [-2]abcd
+                        op.startsWith("-") && op.isDigitsOnly('-') -> valueLine.replace(
+                            startArrayOpIndex,
+                            endArrayIndex,
+                            value.removeRange(abs(op.toInt())-1, abs(op.toInt())) // счет начинается с 1-го
+                        )
 
+
+                    }
                 }
+
+
 
                 calculatedLines += valueLine.toString() + "\n"
             }
