@@ -397,7 +397,7 @@ fun updateValues(code: String, elements: SnapshotStateList<Element>) {
                             "${value[op.toInt() - 1]}" // счет мест для заполнения начинается с 1-го
                         )
 
-                        !op.startsWith("-") && op.contains("..") -> {
+                        !op.startsWith("-") && !op.contains("<-") && op.contains("..") -> {
                             val leftRight = op.split("..")
                             val from = leftRight[0].trim().toInt() - 1
                             val to = leftRight[1].trim().toInt()
@@ -421,10 +421,10 @@ fun updateValues(code: String, elements: SnapshotStateList<Element>) {
                             ) // счет мест для заполнения начинается с 1-го
                         )
 
-                        op.startsWith("-") && op.contains("..") -> {
+                        op.startsWith("-") && !op.contains("<-") && op.contains("..") -> {
                             val leftRight = op.removePrefix("-")
                                 .split("..")
-                            val from = leftRight[0].trim().toInt() - 1
+                            val from = abs(leftRight[0].trim().toInt()) - 1
                             val to = leftRight[1].trim().toInt()
                             if (leftRight.size == 2) {
                                 valueLine.replace(
@@ -437,7 +437,7 @@ fun updateValues(code: String, elements: SnapshotStateList<Element>) {
 
                         // заполняем ячейку элемента данными по номеру места
 //                      [2 <- x]abcd
-                        op.contains(" <- ") -> {
+                        op.contains(" <- ") && !op.contains("..") -> {
                             val leftRight = op.split(" <- ", limit = 2)
                             if (leftRight.size == 2) {
                                 val i = leftRight[0].trim().toInt() - 1 // счет мест начинается с 1-го
@@ -450,6 +450,27 @@ fun updateValues(code: String, elements: SnapshotStateList<Element>) {
                                     startArrayOpIndex,
                                     endArrayIndex,
                                     value.replaceRange(i, i + 1, v)
+                                )
+                            }
+                        }
+
+                        op.contains(" <- ") && op.contains("..") -> {
+
+                            val leftRightSet = op.split(" <- ", limit = 2)
+                            if (leftRightSet.size == 2) {
+                                val leftRightRange = op.split("..")
+                                val from = leftRightRange[0].trim().toInt() - 1
+                                val to = leftRightRange[1].trim().split(" ").first().toInt()
+
+                                var v = leftRightSet[1].trim()
+                                if (v.startsWith("\"") && v.endsWith("\"")) {
+                                    v = v.removeSuffix("\"")
+                                        .removePrefix("\"")
+                                }
+                                valueLine.replace(
+                                    startArrayOpIndex,
+                                    endArrayIndex,
+                                    value.replaceRange(from, to, v)
                                 )
                             }
                         }
