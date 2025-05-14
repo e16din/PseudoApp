@@ -55,10 +55,11 @@ fun InstructionsEditorView(
     LaunchedEffect(newElement.value) {
         if (newElement.value == null) return@LaunchedEffect
 
-        val newText = codeValue.text + "\n = ${newElement.value!!.name}\n"
+        val newLine = " = ${newElement.value!!.name}\n"
+        val newText = codeValue.text + "\n" + newLine
         codeValue = TextFieldValue(
             text = newText,
-            selection = TextRange(newText.length)
+            selection = TextRange(newText.length - newLine.length)
         )
 
         updateValues(codeValue.text, elements)
@@ -200,8 +201,8 @@ val namesMap = mutableMapOf<Int, String>() // <Index, Name>
 val ends = listOf(
     "$", " ", "=", "{", "(", ",", ";", "\n", "\t"
 )
-var abstractionsRows = 0
-var abstractionsColumns = 1
+
+val emptyPlaces = mutableListOf<Element>()
 
 fun updateValues(code: String, elements: SnapshotStateList<Element>) {
 
@@ -222,7 +223,7 @@ fun updateValues(code: String, elements: SnapshotStateList<Element>) {
         // элементы которые мы удалили в коде - удаляем и на макете
         val removedEntries = namesMap.entries.filter {
             val name = it.value
-            !source.contains(name)
+            !source.contains(name) || name.isBlank()
         }
 
         for (entry in removedEntries) {
@@ -231,15 +232,7 @@ fun updateValues(code: String, elements: SnapshotStateList<Element>) {
         println("namesMap: ${namesMap}")
         val removed = elements.filter { !namesMap.values.contains(it.name) }
 
-        repeat(removed.size) { i ->
-            if (abstractionsRows > 0) {
-                abstractionsRows -= 1
-            } else {
-                abstractionsRows = 6
-                abstractionsColumns -= 1
-            }
-        }
-
+        emptyPlaces.addAll(removed)
 
         println("elements: ${elements.map { it.name }}")
         println("removed: ${removed.map { it.name }}")
@@ -247,18 +240,21 @@ fun updateValues(code: String, elements: SnapshotStateList<Element>) {
         println("elements: ${elements.map { it.name }}")
     }
 
+    collectGarbage() // изменили код - собрали мусор
+
     val lines = source.split("\n")
     lines.forEachIndexed { i, line ->
         // если нашли знак = и справа от него имя,
         // то наполняем словарь тем что слева от =
-        val index = line.lastIndexOf("=")
+        val namingOp = " = "
+        val index = line.lastIndexOf(namingOp)
 
         if (index != -1
             && line.trim().length > 1
             && index < line.length - 1
         ) {
             var left = line.substring(0, index)
-            val right = line.substring(index + 1, line.length).trim()
+            val right = line.substring(index + namingOp.length, line.length).trim()
 
             var totalTextIndex = 0
             var pointer = i - 1
@@ -277,6 +273,8 @@ fun updateValues(code: String, elements: SnapshotStateList<Element>) {
                 namesMap.remove(it.key)
             }
             namesMap[totalTextIndex] = right
+
+            collectGarbage() // изменили код - собрали мусор
 
             if (left.trim() == "}") {
                 var closedBracketIndex = 0
@@ -300,8 +298,6 @@ fun updateValues(code: String, elements: SnapshotStateList<Element>) {
 
                 left = source.substring(openBracketIndex + 1, closedBracketIndex)
             }
-
-            collectGarbage()
 
             var calculatedLines = ""
             left.split("\n").forEach { leftLine ->
@@ -458,7 +454,10 @@ fun updateValues(code: String, elements: SnapshotStateList<Element>) {
             }
 
             if (elementIndex != -1) {
-                elements[elementIndex] = elements[elementIndex].copy(value = elementValue, index = totalTextIndex)
+                if (elements[elementIndex].value != elementValue) {
+                    println("e: updated value: $elementName")
+                    elements[elementIndex] = elements[elementIndex].copy(value = elementValue, index = totalTextIndex)
+                }
 
             } else {
                 // ренэйм элемента,
@@ -466,41 +465,49 @@ fun updateValues(code: String, elements: SnapshotStateList<Element>) {
                 val editedElementIndex = elements.indexOfFirst { it.index == totalTextIndex }
 
                 if (editedElementIndex != -1) {
+                    println("e: edited name: $elementName")
+                    val editedElement = elements[editedElementIndex]
                     elements[editedElementIndex] =
-                        elements[editedElementIndex].copy(name = elementName, value = elementValue)
+                        editedElement.copy(name = elementName, value = elementValue)
 
                 } else if (!elementName.isBlank()) {
+                    println("e: added new element: $elementName")
                     // добавление новой абстракции
-                    val x = layoutRect.width - (100f * abstractionsColumns)
-                    val y = abstractionsRows * 80f + 10f + 6 * abstractionsRows
 
-                    val abstractElement = Element(
-                        name = elementName,
-                        value = elementValue,
+
+                    val stubElement = emptyPlaces.minByOrNull { it.area.top }
+                    var area = stubElement?.area
+                    if (area == null) {
+                        val nextPlaceIndex = elements.size
+                        val x = layoutRect.width - (100f * (nextPlaceIndex / 7 + 1))
+                        val row = nextPlaceIndex % 7
+                        val y = row * 80f + 10f + 6 * row
+
                         area = Rect(
                             Offset(x, y),
                             Offset(
                                 x + 80f, y + 80f
                             )
-                        ),
-                        color = currentColor.color,
+                        )
+
+                    } else {
+                        emptyPlaces.remove(stubElement)
+                    }
+                    val abstractElement = Element(
+                        name = elementName,
+                        value = elementValue,
+                        area = area,
+                        color = stubElement?.color ?: currentColor.color.also {
+                            currentColor = nextColor()
+                        },
                         isCircle = false,
                         isAbstract = true,
                         index = totalTextIndex
                     )
 
-                    abstractionsRows += 1
-                    if (abstractionsRows == 7) {
-                        abstractionsRows = 0
-                        abstractionsColumns += 1
-                    }
-
                     elements.add(abstractElement)
                 }
-                currentColor = nextColor()
             }
         }
     }
-
-    collectGarbage()
 }
