@@ -397,7 +397,7 @@ fun updateValues(code: String, elements: SnapshotStateList<Element>) {
                             "${value[op.toInt() - 1]}" // счет мест для заполнения начинается с 1-го
                         )
 
-                        op.contains("..") -> {
+                        !op.startsWith("-") && op.contains("..") -> {
                             val leftRight = op.split("..")
                             val from = leftRight[0].trim().toInt() - 1
                             val to = leftRight[1].trim().toInt()
@@ -420,6 +420,20 @@ fun updateValues(code: String, elements: SnapshotStateList<Element>) {
                                 abs(op.toInt())
                             ) // счет мест для заполнения начинается с 1-го
                         )
+
+                        op.startsWith("-") && op.contains("..") -> {
+                            val leftRight = op.removePrefix("-")
+                                .split("..")
+                            val from = leftRight[0].trim().toInt() - 1
+                            val to = leftRight[1].trim().toInt()
+                            if (leftRight.size == 2) {
+                                valueLine.replace(
+                                    startArrayOpIndex,
+                                    endArrayIndex,
+                                    value.removeRange(from, to) // счет мест для заполнения начинается с 1-го
+                                )
+                            }
+                        }
 
                         // заполняем ячейку элемента данными по номеру места
 //                      [2 <- x]abcd
