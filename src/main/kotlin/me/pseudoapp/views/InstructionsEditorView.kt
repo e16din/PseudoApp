@@ -73,6 +73,7 @@ fun InstructionsEditorView(
         val prevDividerIndex = listOf(
             codeValue.text.lastIndexOf("\n", codeValue.selection.end - 1),
             codeValue.text.lastIndexOf(" ", codeValue.selection.end - 1),
+            codeValue.text.lastIndexOf("$", codeValue.selection.end - 1),
             codeValue.text.lastIndexOf(",", codeValue.selection.end - 1),
             codeValue.text.lastIndexOf("{", codeValue.selection.end - 1),
             codeValue.text.lastIndexOf("=", codeValue.selection.end - 1),
@@ -360,21 +361,36 @@ fun updateValues(code: String, elements: SnapshotStateList<Element>) {
                         op.isDigitsOnly() -> valueLine.replace(
                             startArrayOpIndex,
                             endArrayIndex,
-                            "${value.toString()[op.toInt()-1]}" // счет начинается с 1-го
+                            "${value.toString()[op.toInt() - 1]}" // счет мест для заполнения начинается с 1-го
                         )
                         // удаляем элемент по номеру места
 //                      [-2]abcd
                         op.startsWith("-") && op.isDigitsOnly('-') -> valueLine.replace(
                             startArrayOpIndex,
                             endArrayIndex,
-                            value.removeRange(abs(op.toInt())-1, abs(op.toInt())) // счет начинается с 1-го
+                            value.removeRange(abs(op.toInt()) - 1, abs(op.toInt())) // счет мест для заполнения начинается с 1-го
                         )
 
-
+                        // заполняем ячейку элемента данными по номеру места
+//                      [2 <- x]abcd
+                        op.contains(" <- ") -> {
+                            val leftRight = op.split(" <- ", limit = 2)
+                            if (leftRight.size == 2) {
+                                val i = leftRight[0].trim().toInt()-1 // счет мест начинается с 1-го
+                                var v = leftRight[1].trim()
+                                if (v.startsWith("\"") && v.endsWith("\"")) {
+                                    v = v.removeSuffix("\"")
+                                        .removePrefix("\"")
+                                }
+                                valueLine.replace(
+                                    startArrayOpIndex,
+                                    endArrayIndex,
+                                    value.replaceRange(i, i+1, v)
+                                )
+                            }
+                        }
                     }
                 }
-
-
 
                 calculatedLines += valueLine.toString() + "\n"
             }
@@ -434,15 +450,15 @@ fun updateValues(code: String, elements: SnapshotStateList<Element>) {
 
     // сборка мусора :)
     // элементы которые мы удалили в коде - удаляем и на макете
-    var i = 0
-    while (i < namesMap.entries.size) {
-        val it = namesMap.entries.toList()[i]
-        if (!source.contains(it.value) || it.value.trim().isEmpty()) {
-            namesMap.remove(it.key)
-        }
-        i++
+    val removedEntries = namesMap.entries.filter {
+        val name = it.value
+        !source.contains(name)
     }
-    println("namesMap: ${namesMap}")
+
+    for (entry in removedEntries) {
+        namesMap.remove(entry.key)
+    }
+    println("namesMap b: ${namesMap}")
     val removed = elements.filter { !namesMap.values.contains(it.name) }
 
     repeat(removed.size) { i ->
@@ -454,8 +470,13 @@ fun updateValues(code: String, elements: SnapshotStateList<Element>) {
         }
     }
 
+    if(elements.size == 0) {
+        abstractionsRows = 0
+        abstractionsColumns = 1
+    }
+
     println("elements: ${elements.map { it.name }}")
-    println("removed: ${removed}")
+    println("removed: ${removed.map { it.name }}")
     elements.removeAll(removed)
     println("elements: ${elements.map { it.name }}")
 }

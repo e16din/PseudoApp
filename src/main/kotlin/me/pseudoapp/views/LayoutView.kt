@@ -202,7 +202,7 @@ fun LayoutView(
                     textLayoutResult = textLayoutResult,
                     topLeft = Offset(
                         x = element.area.left + element.area.width / 2 - textSize.width / 2f,
-                        y = element.area.top - 8.dp.toPx() + element.area.height / 2 - textSize.height / 2f
+                        y = element.area.top - 8.dp.toPx() + element.area.height / 3.14f - textSize.height / 2f
                     ),
                 )
 
