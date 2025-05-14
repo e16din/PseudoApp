@@ -216,6 +216,37 @@ fun updateValues(code: String, elements: SnapshotStateList<Element>) {
 
     // detect value changed
     val source = StringBuilder(code)
+
+    fun collectGarbage() {
+        // сборка мусора :)
+        // элементы которые мы удалили в коде - удаляем и на макете
+        val removedEntries = namesMap.entries.filter {
+            val name = it.value
+            !source.contains(name)
+        }
+
+        for (entry in removedEntries) {
+            namesMap.remove(entry.key)
+        }
+        println("namesMap: ${namesMap}")
+        val removed = elements.filter { !namesMap.values.contains(it.name) }
+
+        repeat(removed.size) { i ->
+            if (abstractionsRows > 0) {
+                abstractionsRows -= 1
+            } else {
+                abstractionsRows = 6
+                abstractionsColumns -= 1
+            }
+        }
+
+
+        println("elements: ${elements.map { it.name }}")
+        println("removed: ${removed.map { it.name }}")
+        elements.removeAll(removed)
+        println("elements: ${elements.map { it.name }}")
+    }
+
     val lines = source.split("\n")
     lines.forEachIndexed { i, line ->
         // если нашли знак = и справа от него имя,
@@ -270,6 +301,8 @@ fun updateValues(code: String, elements: SnapshotStateList<Element>) {
                 left = source.substring(openBracketIndex + 1, closedBracketIndex)
             }
 
+            collectGarbage()
+
             var calculatedLines = ""
             left.split("\n").forEach { leftLine ->
                 val valueLine = StringBuilder(leftLine)
@@ -286,7 +319,6 @@ fun updateValues(code: String, elements: SnapshotStateList<Element>) {
                     if (startValueIndex + 1 != endValueIndex) {
 
                         val value = StringBuilder(valueLine.substring(startValueIndex + 1, endValueIndex))
-
 
                         elements.sortedByDescending { it.name.length } // для того чтобы R не подставлялся в Result
                             .forEach {
@@ -307,6 +339,9 @@ fun updateValues(code: String, elements: SnapshotStateList<Element>) {
                     endValueIndex = valueLine.positionOf({
                         ends.contains(it)
                     }, endValueIndex + 1)
+                    if (endValueIndex == -1) {
+                        endValueIndex = valueLine.length
+                    }
                 }
 
                 // высчитываем и подставляем математические операции
@@ -337,7 +372,7 @@ fun updateValues(code: String, elements: SnapshotStateList<Element>) {
                 }
 
                 // высчитываем и подставляем операции со строками/массивами
-//                [!]abcd
+                // слева направо
                 val startArrayOpIndex = valueLine.indexOf("[")
                 val endArrayOpIndex = valueLine.indexOf("]")
 
@@ -352,23 +387,42 @@ fun updateValues(code: String, elements: SnapshotStateList<Element>) {
                 if (startArrayOpIndex != -1 && endArrayOpIndex != -1) {
                     val op = valueLine.substring(startArrayOpIndex + 1, endArrayOpIndex)
                     val value = valueLine.substring(startArrayIndex, endArrayIndex)
+
                     when {
-                        // высчитываем и подставляем операции со строками/массивами
+                        // переворачиваем данные(инвертируем порядок)
 //                      [!]abcd
                         op == "!" -> valueLine.replace(startArrayOpIndex, endArrayIndex, value.toString().reversed())
+
                         // копируем элемент по номеру места
 //                      [2]abcd
                         op.isDigitsOnly() -> valueLine.replace(
                             startArrayOpIndex,
                             endArrayIndex,
-                            "${value.toString()[op.toInt() - 1]}" // счет мест для заполнения начинается с 1-го
+                            "${value[op.toInt() - 1]}" // счет мест для заполнения начинается с 1-го
                         )
+
+                        op.contains("..") -> {
+                            val leftRight = op.split("..")
+                            val from = leftRight[0].trim().toInt() - 1
+                            val to = leftRight[1].trim().toInt()
+                            if (leftRight.size == 2) {
+                                valueLine.replace(
+                                    startArrayOpIndex,
+                                    endArrayIndex,
+                                    value.substring(from, to) // счет мест для заполнения начинается с 1-го
+                                )
+                            }
+                        }
+
                         // удаляем элемент по номеру места
 //                      [-2]abcd
                         op.startsWith("-") && op.isDigitsOnly('-') -> valueLine.replace(
                             startArrayOpIndex,
                             endArrayIndex,
-                            value.removeRange(abs(op.toInt()) - 1, abs(op.toInt())) // счет мест для заполнения начинается с 1-го
+                            value.removeRange(
+                                abs(op.toInt()) - 1,
+                                abs(op.toInt())
+                            ) // счет мест для заполнения начинается с 1-го
                         )
 
                         // заполняем ячейку элемента данными по номеру места
@@ -376,7 +430,7 @@ fun updateValues(code: String, elements: SnapshotStateList<Element>) {
                         op.contains(" <- ") -> {
                             val leftRight = op.split(" <- ", limit = 2)
                             if (leftRight.size == 2) {
-                                val i = leftRight[0].trim().toInt()-1 // счет мест начинается с 1-го
+                                val i = leftRight[0].trim().toInt() - 1 // счет мест начинается с 1-го
                                 var v = leftRight[1].trim()
                                 if (v.startsWith("\"") && v.endsWith("\"")) {
                                     v = v.removeSuffix("\"")
@@ -385,7 +439,7 @@ fun updateValues(code: String, elements: SnapshotStateList<Element>) {
                                 valueLine.replace(
                                     startArrayOpIndex,
                                     endArrayIndex,
-                                    value.replaceRange(i, i+1, v)
+                                    value.replaceRange(i, i + 1, v)
                                 )
                             }
                         }
@@ -415,7 +469,7 @@ fun updateValues(code: String, elements: SnapshotStateList<Element>) {
                     elements[editedElementIndex] =
                         elements[editedElementIndex].copy(name = elementName, value = elementValue)
 
-                } else {
+                } else if (!elementName.isBlank()) {
                     // добавление новой абстракции
                     val x = layoutRect.width - (100f * abstractionsColumns)
                     val y = abstractionsRows * 80f + 10f + 6 * abstractionsRows
@@ -448,35 +502,5 @@ fun updateValues(code: String, elements: SnapshotStateList<Element>) {
         }
     }
 
-    // сборка мусора :)
-    // элементы которые мы удалили в коде - удаляем и на макете
-    val removedEntries = namesMap.entries.filter {
-        val name = it.value
-        !source.contains(name)
-    }
-
-    for (entry in removedEntries) {
-        namesMap.remove(entry.key)
-    }
-    println("namesMap b: ${namesMap}")
-    val removed = elements.filter { !namesMap.values.contains(it.name) }
-
-    repeat(removed.size) { i ->
-        if (abstractionsRows > 0) {
-            abstractionsRows -= 1
-        } else {
-            abstractionsRows = 6
-            abstractionsColumns -= 1
-        }
-    }
-
-    if(elements.size == 0) {
-        abstractionsRows = 0
-        abstractionsColumns = 1
-    }
-
-    println("elements: ${elements.map { it.name }}")
-    println("removed: ${removed.map { it.name }}")
-    elements.removeAll(removed)
-    println("elements: ${elements.map { it.name }}")
+    collectGarbage()
 }
