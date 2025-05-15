@@ -63,14 +63,14 @@ fun InstructionsEditorView(
             selection = TextRange(newText.length - newLine.length)
         )
 
-        updateValues(codeValue.text, elements)
+        updateValues(codeValue.text, elements, newElement.value)
     }
 
     LaunchedEffect(codeValue) {
         if (codeValue.text.isNotEmpty()) {
             delay(280)
             try {
-                updateValues(codeValue.text, elements)
+                updateValues(codeValue.text, elements, newElement.value)
             } catch (e: Exception) {
                 e.printStackTrace()
             }
@@ -210,7 +210,7 @@ val ends = listOf(
 
 val emptyPlaces = mutableListOf<Element>()
 
-fun updateValues(code: String, elements: SnapshotStateList<Element>) {
+fun updateValues(code: String, elements: SnapshotStateList<Element>, newElement: Element?) {
 
     fun calc(data: String): String {
         return try {
@@ -229,14 +229,18 @@ fun updateValues(code: String, elements: SnapshotStateList<Element>) {
         // элементы которые мы удалили в коде - удаляем и на макете
         val removedEntries = namesMap.entries.filter {
             val name = it.value
-            !source.contains(name) || name.isBlank()
+            name != newElement?.name
+                    && !source.contains(name) || name.isBlank()
         }
-
+        println("namesMap a: ${namesMap}")
         for (entry in removedEntries) {
             namesMap.remove(entry.key)
         }
-        println("namesMap: ${namesMap}")
-        val removed = elements.filter { !namesMap.values.contains(it.name) }
+        println("namesMap b: ${namesMap}")
+        val removed = elements.filter {
+            it.name != newElement?.name
+                && !namesMap.values.contains(it.name)
+        }
 
         emptyPlaces.addAll(removed)
 
@@ -519,7 +523,7 @@ fun updateValues(code: String, elements: SnapshotStateList<Element>) {
                     val stubElement = emptyPlaces.minByOrNull { it.area.top }
                     var area = stubElement?.area
                     if (area == null) {
-                        val nextPlaceIndex = elements.size
+                        val nextPlaceIndex = elements.count { it.isAbstract }
                         val x = layoutRect.width - (100f * (nextPlaceIndex / 7 + 1))
                         val row = nextPlaceIndex % 7
                         val y = row * 80f + 10f + 6 * row
