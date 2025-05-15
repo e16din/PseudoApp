@@ -24,6 +24,7 @@ import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.delay
 import me.pseudoapp.Element
 import me.pseudoapp.currentColor
 import me.pseudoapp.layoutRect
@@ -63,6 +64,17 @@ fun InstructionsEditorView(
         )
 
         updateValues(codeValue.text, elements)
+    }
+
+    LaunchedEffect(codeValue) {
+        if (codeValue.text.isNotEmpty()) {
+            delay(280)
+            try {
+                updateValues(codeValue.text, elements)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
     }
 
     @Composable
@@ -157,12 +169,6 @@ fun InstructionsEditorView(
 
                     isCodeCompletionEnabled = true
 
-                    try {
-                        updateValues(codeValue.text, elements)
-                    } catch (e: Exception) {
-                        e.printStackTrace()
-                    }
-
                 }, onTextLayout = { result ->
                     layoutResult = result
                     val cursorPos = codeValue.selection.end
@@ -199,7 +205,7 @@ fun InstructionsEditorView(
 
 val namesMap = mutableMapOf<Int, String>() // <Index, Name>
 val ends = listOf(
-    "$", " ", "=", "{", "(", ",", ";", "\n", "\t"
+    "$", " ", "+", "-", "*", "/", "%", "=", "{", "(", ",", ";", "\n", "\t", "}", ")"
 )
 
 val emptyPlaces = mutableListOf<Element>()
@@ -328,13 +334,13 @@ fun updateValues(code: String, elements: SnapshotStateList<Element>) {
                             }
 
                         valueLine.replace(
-                            startValueIndex, endValueIndex + 1, value.toString()
+                            startValueIndex, endValueIndex, value.toString()
                         )
                     }
-                    startValueIndex = valueLine.indexOf("$", endValueIndex + 1)
+                    startValueIndex = valueLine.indexOf("$", endValueIndex)
                     endValueIndex = valueLine.positionOf({
                         ends.contains(it)
-                    }, endValueIndex + 1)
+                    }, startValueIndex + 1)
                     if (endValueIndex == -1) {
                         endValueIndex = valueLine.length
                     }
