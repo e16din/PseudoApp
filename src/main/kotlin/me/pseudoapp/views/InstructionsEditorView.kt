@@ -40,15 +40,14 @@ const val unknown = "?"
 @Composable
 fun InstructionsEditorView(
     elements: SnapshotStateList<Element>,
-    newElement: State<Element?>,
+    newElement: MutableState<Element?>,
 ) {
     val instructionsRequester = remember { FocusRequester() }
     var codeValue by remember { mutableStateOf(TextFieldValue()) }
 
-//    var isElementInserted by remember { mutableStateOf(false) }
     var isCodeCompletionEnabled by remember { mutableStateOf(false) }
-    var textFieldPosition by remember { mutableStateOf(Offset.Zero) } // позиция TextField на экране
-    var cursorOffsetInTextField by remember { mutableStateOf(Offset.Zero) } // позиция курсора внутри TextField
+    var textFieldPosition by remember { mutableStateOf(Offset.Zero) }
+    var cursorOffsetInTextField by remember { mutableStateOf(Offset.Zero) }
 
     var layoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
     val textStyle = TextStyle.Default
@@ -63,17 +62,20 @@ fun InstructionsEditorView(
             selection = TextRange(newText.length - newLine.length)
         )
 
-        updateValues(codeValue.text, elements, newElement.value)
+        updateValues(codeValue.text, elements, newElement.value) {
+            // do nothing
+        }
+        newElement.value = null
     }
 
     LaunchedEffect(codeValue) {
-        if (codeValue.text.isNotEmpty()) {
-            delay(280)
-            try {
-                updateValues(codeValue.text, elements, newElement.value)
-            } catch (e: Exception) {
-                e.printStackTrace()
+        delay(210)
+        try {
+            updateValues(codeValue.text, elements, newElement.value) { newCode ->
+                codeValue = codeValue.copy(text = newCode)
             }
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
     }
 
@@ -208,9 +210,15 @@ val ends = listOf(
     "$", " ", "+", "-", "*", "/", "%", "=", "{", "(", ",", ";", "\n", "\t", "}", ")"
 )
 
-val emptyPlaces = mutableListOf<Element>()
+val emptyAbstractPlaces = mutableListOf<Element>()
 
-fun updateValues(code: String, elements: SnapshotStateList<Element>, newElement: Element?) {
+fun updateValues(
+    code: String,
+//    cursorPosition:Int,
+    elements: SnapshotStateList<Element>,
+    newElement: Element?,
+    onCodeUpdate: (String) -> Unit
+) {
 
     fun calc(data: String): String {
         return try {
@@ -229,8 +237,7 @@ fun updateValues(code: String, elements: SnapshotStateList<Element>, newElement:
         // элементы которые мы удалили в коде - удаляем и на макете
         val removedEntries = namesMap.entries.filter {
             val name = it.value
-            name != newElement?.name
-                    && !source.contains(name) || name.isBlank()
+            !source.contains(name) || name.isBlank()
         }
         println("namesMap a: ${namesMap}")
         for (entry in removedEntries) {
@@ -239,10 +246,10 @@ fun updateValues(code: String, elements: SnapshotStateList<Element>, newElement:
         println("namesMap b: ${namesMap}")
         val removed = elements.filter {
             it.name != newElement?.name
-                && !namesMap.values.contains(it.name)
+                    && !namesMap.values.contains(it.name)
         }
 
-        emptyPlaces.addAll(removed)
+        emptyAbstractPlaces.addAll(removed.filter { it.isAbstract })
 
         println("elements: ${elements.map { it.name }}")
         println("removed: ${removed.map { it.name }}")
@@ -252,19 +259,43 @@ fun updateValues(code: String, elements: SnapshotStateList<Element>, newElement:
 
     collectGarbage() // изменили код - собрали мусор
 
+    //  Step: обрабатываем каждую линию
+
     val lines = source.split("\n")
     lines.forEachIndexed { i, line ->
+        val recalculatingOp = " => "
+        val recalculatingOpIndex = line.lastIndexOf(recalculatingOp)
+
         // если нашли знак = и справа от него имя,
         // то наполняем словарь тем что слева от =
-        val namingOp = " = "
-        val index = line.lastIndexOf(namingOp)
 
-        if (index != -1
-            && line.trim().length > 1
-            && index < line.length - 1
+        val namingOp = " = "
+        val namingOpIndex = line.lastIndexOf(namingOp)
+
+        var calcOp = ""
+        var calcOpIndex = -1
+        if (namingOpIndex != -1) {
+            calcOp = namingOp
+            calcOpIndex = namingOpIndex
+
+        } else if (recalculatingOpIndex != -1) {
+            println("recalculatingOpIndex: $recalculatingOpIndex")
+            calcOp = recalculatingOp
+            calcOpIndex = recalculatingOpIndex
+        }
+
+        if (line.trim().length > 1
+            && calcOpIndex != -1
+            && calcOpIndex + calcOp.length != line.length
         ) {
-            var left = line.substring(0, index)
-            val right = line.substring(index + namingOp.length, line.length).trim()
+            println("line: $line")
+            println("recalculatingOpIndex2: $recalculatingOpIndex")
+            //  Step: Обрабатываем именование
+            // если слева однострочное значение
+
+            var left = line.substring(0, calcOpIndex)
+            val right = line.substring(calcOpIndex + calcOp.length, line.length).trim()
+
 
             var totalTextIndex = 0
             var pointer = i - 1
@@ -272,20 +303,9 @@ fun updateValues(code: String, elements: SnapshotStateList<Element>, newElement:
                 totalTextIndex += lines[pointer].length + 1
                 pointer--
             }
-            totalTextIndex += index + 1
+            totalTextIndex += calcOpIndex + 1
 
-            namesMap.firstNotNullOfOrNull {
-                if (it.value == right && it.key != totalTextIndex)
-                    it
-                else
-                    null
-            }?.let {
-                namesMap.remove(it.key)
-            }
-            namesMap[totalTextIndex] = right
-
-            collectGarbage() // изменили код - собрали мусор
-
+            // если слева многострочное значение
             if (left.trim() == "}") {
                 var closedBracketIndex = 0
                 var pointer = i - 1
@@ -309,248 +329,323 @@ fun updateValues(code: String, elements: SnapshotStateList<Element>, newElement:
                 left = source.substring(openBracketIndex + 1, closedBracketIndex)
             }
 
-            var calculatedLines = ""
-            left.split("\n").forEach { leftLine ->
-                val valueLine = StringBuilder(leftLine)
+            namesMap.firstNotNullOfOrNull {
+                if (it.value == right && it.key != totalTextIndex)
+                    it
+                else
+                    null
+            }?.let {
+                namesMap.remove(it.key)
+            }
+            namesMap[totalTextIndex] = right
 
-                // подставляем значения по имени
-                var startValueIndex = valueLine.indexOf("$")
-                var endValueIndex = valueLine.positionOf({
-                    ends.contains(it)
-                }, startValueIndex + 1)
-                if (endValueIndex == -1) {
-                    endValueIndex = valueLine.length
+            collectGarbage() // изменили код - собрали мусор
+
+            fun isLastRecalculation(): Boolean {
+                val nextRecalculatingIndex =
+                    source.indexOf(recalculatingOp + right, totalTextIndex + recalculatingOp.length)
+                val isLastRecalculation = nextRecalculatingIndex == -1
+                return isLastRecalculation
+            }
+
+            if (calcOp != recalculatingOp || isLastRecalculation()) {
+                val changedOp = " <= "
+
+                if (calcOp != recalculatingOp && left.contains(changedOp)) {
+                    val changedOpIndex = left.indexOf(changedOp)
+                    println("xxx left a: $left")
+                    left = left.substring(changedOpIndex + changedOp.length, namingOpIndex)
+                    println("xxx left b: $left")
                 }
-                while (startValueIndex != -1) {
-                    if (startValueIndex + 1 != endValueIndex) {
+                //  Step: Обрабатываем значения (то что слева от = )
+                var calculatedLines = ""
+                left.split("\n").forEach { leftLine ->
+                    val valueLine = StringBuilder(leftLine)
 
-                        val value = StringBuilder(valueLine.substring(startValueIndex + 1, endValueIndex))
-
-                        elements.sortedByDescending { it.name.length } // для того чтобы R не подставлялся в Result
-                            .forEach {
-                                val nameIndex = value.indexOf(it.name)
-                                val elementValue = it.value.trim().replace("\n", "")
-
-                                if (nameIndex != -1 && elementValue != unknown) {
-                                    value.replace(nameIndex, nameIndex + it.name.length, "")
-                                    value.insert(nameIndex, elementValue)
-                                }
-                            }
-
-                        valueLine.replace(
-                            startValueIndex, endValueIndex, value.toString()
-                        )
-                    }
-                    startValueIndex = valueLine.indexOf("$", endValueIndex)
-                    endValueIndex = valueLine.positionOf({
+                    //  Step: подставляем значения по имени
+                    var startValueIndex = valueLine.indexOf("$")
+                    var endValueIndex = valueLine.positionOf({
                         ends.contains(it)
                     }, startValueIndex + 1)
                     if (endValueIndex == -1) {
                         endValueIndex = valueLine.length
                     }
-                }
+                    while (startValueIndex != -1) {
+                        if (startValueIndex + 1 != endValueIndex) {
 
-                // высчитываем и подставляем математические операции
-                var startMathIndex = valueLine.indexOf("{", 0)
-                var endMathIndex = valueLine.indexOf("}", 0)
-                while (startMathIndex != -1 && endMathIndex != -1) {
-                    if (startMathIndex + 1 != endMathIndex) {
-                        val value = StringBuilder(valueLine.substring(startMathIndex + 1, endMathIndex))
+                            val value = StringBuilder(valueLine.substring(startValueIndex + 1, endValueIndex))
 
-                        elements.sortedByDescending { it.name.length } // для того чтобы R не подставлялся в Result
-                            .forEach {
-                                val nameIndex = value.indexOf(it.name)
-                                val elementValue = it.value.trim().replace("\n", "")
-                                if (nameIndex != -1 && elementValue != unknown) {
-                                    value.replace(nameIndex, nameIndex + it.name.length, elementValue)
+                            elements.sortedByDescending { it.name.length } // для того чтобы R не подставлялся в Result
+                                .forEach {
+                                    val nameIndex = value.indexOf(it.name)
+                                    val elementValue = it.value.trim().replace("\n", "")
+
+                                    if (nameIndex != -1 && elementValue != unknown) {
+                                        value.replace(nameIndex, nameIndex + it.name.length, "")
+                                        value.insert(nameIndex, elementValue)
+                                    }
                                 }
-                            }
 
-                        val calcResult = calc(value.toString())
-                        valueLine.replace(
-                            startMathIndex, endMathIndex + 1,
-                            calcResult
-                        )
-                    }
-
-                    startMathIndex = valueLine.indexOf("{", endMathIndex + 1)
-                    endMathIndex = valueLine.indexOf("}", endMathIndex + 1)
-                }
-
-                // высчитываем и подставляем операции со строками/массивами
-                // слева направо
-                val startArrayOpIndex = valueLine.indexOf("[")
-                val endArrayOpIndex = valueLine.indexOf("]")
-
-                val startArrayIndex = endArrayOpIndex + 1
-                var endArrayIndex = valueLine.positionOf({
-                    ends.contains(it)
-                }, startArrayIndex)
-                if (endArrayIndex == -1) {
-                    endArrayIndex = valueLine.length
-                }
-
-                if (startArrayOpIndex != -1 && endArrayOpIndex != -1) {
-                    val op = valueLine.substring(startArrayOpIndex + 1, endArrayOpIndex)
-                    val value = valueLine.substring(startArrayIndex, endArrayIndex)
-
-                    when {
-                        // переворачиваем данные(инвертируем порядок)
-//                      [!]abcd
-                        op == "!" -> valueLine.replace(startArrayOpIndex, endArrayIndex, value.toString().reversed())
-
-                        // копируем элемент по номеру места
-//                      [2]abcd
-                        op.isDigitsOnly() -> valueLine.replace(
-                            startArrayOpIndex,
-                            endArrayIndex,
-                            "${value[op.toInt() - 1]}" // счет мест для заполнения начинается с 1-го
-                        )
-
-                        !op.startsWith("-") && !op.contains("<-") && op.contains("..") -> {
-                            val leftRight = op.split("..")
-                            val from = leftRight[0].trim().toInt() - 1
-                            val to = leftRight[1].trim().toInt()
-                            if (leftRight.size == 2) {
-                                valueLine.replace(
-                                    startArrayOpIndex,
-                                    endArrayIndex,
-                                    value.substring(from, to) // счет мест для заполнения начинается с 1-го
-                                )
-                            }
-                        }
-
-                        // удаляем элемент по номеру места
-//                      [-2]abcd
-                        op.startsWith("-") && op.isDigitsOnly('-') -> valueLine.replace(
-                            startArrayOpIndex,
-                            endArrayIndex,
-                            value.removeRange(
-                                abs(op.toInt()) - 1,
-                                abs(op.toInt())
-                            ) // счет мест для заполнения начинается с 1-го
-                        )
-
-                        op.startsWith("-") && !op.contains("<-") && op.contains("..") -> {
-                            val leftRight = op.removePrefix("-")
-                                .split("..")
-                            val from = abs(leftRight[0].trim().toInt()) - 1
-                            val to = leftRight[1].trim().toInt()
-                            if (leftRight.size == 2) {
-                                valueLine.replace(
-                                    startArrayOpIndex,
-                                    endArrayIndex,
-                                    value.removeRange(from, to) // счет мест для заполнения начинается с 1-го
-                                )
-                            }
-                        }
-
-                        // заполняем ячейку элемента данными по номеру места
-//                      [2 <- x]abcd
-                        op.contains(" <- ") && !op.contains("..") -> {
-                            val leftRight = op.split(" <- ", limit = 2)
-                            if (leftRight.size == 2) {
-                                val i = leftRight[0].trim().toInt() - 1 // счет мест начинается с 1-го
-                                var v = leftRight[1].trim()
-                                if (v.startsWith("\"") && v.endsWith("\"")) {
-                                    v = v.removeSuffix("\"")
-                                        .removePrefix("\"")
-                                }
-                                valueLine.replace(
-                                    startArrayOpIndex,
-                                    endArrayIndex,
-                                    value.replaceRange(i, i + 1, v)
-                                )
-                            }
-                        }
-
-                        op.contains(" <- ") && op.contains("..") -> {
-
-                            val leftRightSet = op.split(" <- ", limit = 2)
-                            if (leftRightSet.size == 2) {
-                                val leftRightRange = op.split("..")
-                                val from = leftRightRange[0].trim().toInt() - 1
-                                val to = leftRightRange[1].trim().split(" ").first().toInt()
-
-                                var v = leftRightSet[1].trim()
-                                if (v.startsWith("\"") && v.endsWith("\"")) {
-                                    v = v.removeSuffix("\"")
-                                        .removePrefix("\"")
-                                }
-                                valueLine.replace(
-                                    startArrayOpIndex,
-                                    endArrayIndex,
-                                    value.replaceRange(from, to, v)
-                                )
-                            }
-                        }
-                    }
-                }
-
-                calculatedLines += valueLine.toString() + "\n"
-            }
-            left = calculatedLines
-
-
-            val elementName = right.trim()
-            val elementValue = left
-            val elementIndex = elements.indexOfFirst {
-                it.name == elementName
-            }
-
-            if (elementIndex != -1) {
-                if (elements[elementIndex].value != elementValue) {
-                    println("e: updated value: $elementName")
-                    elements[elementIndex] = elements[elementIndex].copy(value = elementValue, index = totalTextIndex)
-                }
-
-            } else {
-                // ренэйм элемента,
-                //  чтобы при редактировании не создавалось куча новых элементов
-                val editedElementIndex = elements.indexOfFirst { it.index == totalTextIndex }
-
-                if (editedElementIndex != -1) {
-                    println("e: edited name: $elementName")
-                    val editedElement = elements[editedElementIndex]
-                    elements[editedElementIndex] =
-                        editedElement.copy(name = elementName, value = elementValue)
-
-                } else if (!elementName.isBlank()) {
-                    println("e: added new element: $elementName")
-                    // добавление новой абстракции
-
-
-                    val stubElement = emptyPlaces.minByOrNull { it.area.top }
-                    var area = stubElement?.area
-                    if (area == null) {
-                        val nextPlaceIndex = elements.count { it.isAbstract }
-                        val x = layoutRect.width - (100f * (nextPlaceIndex / 7 + 1))
-                        val row = nextPlaceIndex % 7
-                        val y = row * 80f + 10f + 6 * row
-
-                        area = Rect(
-                            Offset(x, y),
-                            Offset(
-                                x + 80f, y + 80f
+                            valueLine.replace(
+                                startValueIndex, endValueIndex, value.toString()
                             )
-                        )
+                        }
+                        startValueIndex = valueLine.indexOf("$", endValueIndex)
+                        endValueIndex = valueLine.positionOf({
+                            ends.contains(it)
+                        }, startValueIndex + 1)
+                        if (endValueIndex == -1) {
+                            endValueIndex = valueLine.length
+                        }
+                    }
+
+                    //  Step: высчитываем и подставляем математические операции
+                    var startMathIndex = valueLine.indexOf("{", 0)
+                    var endMathIndex = valueLine.indexOf("}", 0)
+                    while (startMathIndex != -1 && endMathIndex != -1) {
+                        if (startMathIndex + 1 != endMathIndex) {
+                            val value = StringBuilder(valueLine.substring(startMathIndex + 1, endMathIndex))
+
+                            elements.sortedByDescending { it.name.length } // для того чтобы R не подставлялся в Result
+                                .forEach {
+                                    val nameIndex = value.indexOf(it.name)
+                                    val elementValue = it.value.trim().replace("\n", "")
+                                    if (nameIndex != -1 && elementValue != unknown) {
+                                        value.replace(nameIndex, nameIndex + it.name.length, elementValue)
+                                    }
+                                }
+
+                            val calcResult = calc(value.toString())
+                            valueLine.replace(
+                                startMathIndex, endMathIndex + 1,
+                                calcResult
+                            )
+                        }
+
+                        startMathIndex = valueLine.indexOf("{", endMathIndex + 1)
+                        endMathIndex = valueLine.indexOf("}", endMathIndex + 1)
+                    }
+
+                    //  Step: высчитываем и подставляем операции со строками/массивами
+                    // слева направо
+                    val startArrayOpIndex = valueLine.indexOf("[")
+                    val endArrayOpIndex = valueLine.indexOf("]")
+
+                    val startArrayIndex = endArrayOpIndex + 1
+                    var endArrayIndex = valueLine.positionOf({
+                        ends.contains(it)
+                    }, startArrayIndex)
+                    if (endArrayIndex == -1) {
+                        endArrayIndex = valueLine.length
+                    }
+
+                    if (startArrayOpIndex != -1 && endArrayOpIndex != -1) {
+                        val op = valueLine.substring(startArrayOpIndex + 1, endArrayOpIndex)
+                        val value = valueLine.substring(startArrayIndex, endArrayIndex)
+
+                        when {
+                            // переворачиваем данные(инвертируем порядок)
+//                      [!]abcd
+                            op == "!" -> valueLine.replace(
+                                startArrayOpIndex,
+                                endArrayIndex,
+                                value.toString().reversed()
+                            )
+
+                            // копируем элемент по номеру места
+//                      [2]abcd
+                            op.isDigitsOnly() -> valueLine.replace(
+                                startArrayOpIndex,
+                                endArrayIndex,
+                                "${value[op.toInt() - 1]}" // счет мест для заполнения начинается с 1-го
+                            )
+
+                            !op.startsWith("-") && !op.contains("<-") && op.contains("..") -> {
+                                val leftRight = op.split("..")
+                                val from = leftRight[0].trim().toInt() - 1
+                                val to = leftRight[1].trim().toInt()
+                                if (leftRight.size == 2) {
+                                    valueLine.replace(
+                                        startArrayOpIndex,
+                                        endArrayIndex,
+                                        value.substring(from, to) // счет мест для заполнения начинается с 1-го
+                                    )
+                                }
+                            }
+
+                            // удаляем элемент по номеру места
+//                      [-2]abcd
+                            op.startsWith("-") && op.isDigitsOnly('-') -> valueLine.replace(
+                                startArrayOpIndex,
+                                endArrayIndex,
+                                value.removeRange(
+                                    abs(op.toInt()) - 1,
+                                    abs(op.toInt())
+                                ) // счет мест для заполнения начинается с 1-го
+                            )
+
+                            op.startsWith("-") && !op.contains("<-") && op.contains("..") -> {
+                                val leftRight = op.removePrefix("-")
+                                    .split("..")
+                                val from = abs(leftRight[0].trim().toInt()) - 1
+                                val to = leftRight[1].trim().toInt()
+                                if (leftRight.size == 2) {
+                                    valueLine.replace(
+                                        startArrayOpIndex,
+                                        endArrayIndex,
+                                        value.removeRange(from, to) // счет мест для заполнения начинается с 1-го
+                                    )
+                                }
+                            }
+
+                            // заполняем ячейку элемента данными по номеру места
+//                      [2 <- x]abcd
+                            op.contains(" <- ") && !op.contains("..") -> {
+                                val leftRight = op.split(" <- ", limit = 2)
+                                if (leftRight.size == 2) {
+                                    val i = leftRight[0].trim().toInt() - 1 // счет мест начинается с 1-го
+                                    var v = leftRight[1].trim()
+                                    if (v.startsWith("\"") && v.endsWith("\"")) {
+                                        v = v.removeSuffix("\"")
+                                            .removePrefix("\"")
+                                    }
+                                    valueLine.replace(
+                                        startArrayOpIndex,
+                                        endArrayIndex,
+                                        value.replaceRange(i, i + 1, v)
+                                    )
+                                }
+                            }
+
+                            op.contains(" <- ") && op.contains("..") -> {
+
+                                val leftRightSet = op.split(" <- ", limit = 2)
+                                if (leftRightSet.size == 2) {
+                                    val leftRightRange = op.split("..")
+                                    val from = leftRightRange[0].trim().toInt() - 1
+                                    val to = leftRightRange[1].trim().split(" ").first().toInt()
+
+                                    var v = leftRightSet[1].trim()
+                                    if (v.startsWith("\"") && v.endsWith("\"")) {
+                                        v = v.removeSuffix("\"")
+                                            .removePrefix("\"")
+                                    }
+                                    valueLine.replace(
+                                        startArrayOpIndex,
+                                        endArrayIndex,
+                                        value.replaceRange(from, to, v)
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    calculatedLines += valueLine.toString() + "\n"
+                }
+                left = calculatedLines
+
+                val elementName = right.trim()
+                val elementValue = left.replace("\n", "")
+                val elementIndex = elements.indexOfFirst {
+                    it.name == elementName
+                }
+
+                println("elementValue: $elementValue")
+                val isNaming = namingOpIndex != -1
+                val isRecalculating = recalculatingOpIndex != -1
+                println("isNaming: $isNaming")
+                println("isRecalculating: $isRecalculating")
+                if (isNaming) {
+                    // Step: Обновляем элементы
+                    if (elementIndex != -1) {
+                        if (elements[elementIndex].value != elementValue) {
+                            println("e: updated value: $elementName")
+                            elements[elementIndex] =
+                                elements[elementIndex].copy(value = elementValue, index = totalTextIndex)
+                        }
 
                     } else {
-                        emptyPlaces.remove(stubElement)
-                    }
-                    val abstractElement = Element(
-                        name = elementName,
-                        value = elementValue,
-                        area = area,
-                        color = stubElement?.color ?: currentColor.color.also {
-                            currentColor = nextColor()
-                        },
-                        isCircle = false,
-                        isAbstract = true,
-                        index = totalTextIndex
-                    )
+                        // ренэйм элемента,
+                        //  чтобы при редактировании не создавалось куча новых элементов
+                        val editedElementIndex = elements.indexOfFirst { it.index == totalTextIndex }
 
-                    elements.add(abstractElement)
+                        if (editedElementIndex != -1) {
+                            println("e: edited name: $elementName")
+                            val editedElement = elements[editedElementIndex]
+                            elements[editedElementIndex] =
+                                editedElement.copy(name = elementName, value = elementValue)
+
+                        } else if (!elementName.isBlank()) {
+                            println("e: added new element: $elementName")
+                            // добавление новой абстракции
+
+
+                            val stubElement = emptyAbstractPlaces.minByOrNull { it.area.top }
+                            var area = stubElement?.area
+                            if (area == null) {
+                                val nextPlaceIndex = elements.count { it.isAbstract }
+                                val x = layoutRect.width - (100f * (nextPlaceIndex / 7 + 1))
+                                val row = nextPlaceIndex % 7
+                                val y = row * 80f + 10f + 6 * row
+
+                                area = Rect(
+                                    Offset(x, y),
+                                    Offset(
+                                        x + 80f, y + 80f
+                                    )
+                                )
+
+                            } else {
+                                emptyAbstractPlaces.remove(stubElement)
+                            }
+                            val abstractElement = Element(
+                                name = elementName,
+                                value = elementValue,
+                                area = area,
+                                color = stubElement?.color ?: currentColor.color.also {
+                                    currentColor = nextColor()
+                                },
+                                isCircle = false,
+                                isAbstract = true,
+                                index = totalTextIndex
+                            )
+
+                            elements.add(abstractElement)
+                        }
+                    }
+                } else if (isRecalculating) {
+                    val firstNamingIndex = source.indexOf(namingOp + elementName)
+                    var firstValueStartIndex = source.positionOf(
+                        {
+                            it == "\n"
+                        },
+                        startIndex = firstNamingIndex,
+                        fromEndToStart = true
+                    )
+                    if (firstValueStartIndex == -1) {
+                        firstValueStartIndex = 0
+                    }
+
+                    val firstValueEndIndex = firstNamingIndex
+                    val firstValue = source.substring(firstValueStartIndex, firstValueEndIndex)
+
+
+
+                    println("firstValue: $firstValue")
+                    if (firstValue.contains(changedOp)) {
+                        val startOldValueIndex = firstValue.indexOf(changedOp) + changedOp.length
+                        val oldValue = source.substring(startOldValueIndex, firstValueEndIndex)
+                        println("oldValue: $oldValue | elementValue: $elementValue")
+                        if (oldValue != elementValue) {
+                            println("replace")
+                            source.replace(startOldValueIndex, firstValueEndIndex, elementValue)
+                            onCodeUpdate(source.toString())
+                        }
+
+                    } else {
+                        source.insert(firstValueEndIndex, changedOp + elementValue)
+                        onCodeUpdate(source.toString())
+                    }
                 }
             }
         }
