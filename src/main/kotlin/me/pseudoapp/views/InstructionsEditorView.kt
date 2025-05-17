@@ -62,7 +62,12 @@ fun InstructionsEditorView(
             selection = TextRange(newText.length - newLine.length)
         )
 
-        updateValues(codeValue.text, elements, newElement.value) {
+        updateValues(
+            codeValue.text,
+            codeValue.selection.end,
+            elements,
+            newElement.value
+        ) { _, _ ->
             // do nothing
         }
         newElement.value = null
@@ -71,8 +76,13 @@ fun InstructionsEditorView(
     LaunchedEffect(codeValue) {
         delay(210)
         try {
-            updateValues(codeValue.text, elements, newElement.value) { newCode ->
-                codeValue = codeValue.copy(text = newCode)
+            updateValues(
+                codeValue.text,
+                codeValue.selection.end,
+                elements,
+                newElement.value
+            ) { position, newCode ->
+                codeValue = codeValue.copy(text = newCode, selection = TextRange(position))
             }
         } catch (e: Exception) {
             e.printStackTrace()
@@ -214,10 +224,10 @@ val emptyAbstractPlaces = mutableListOf<Element>()
 
 fun updateValues(
     code: String,
-//    cursorPosition:Int,
+    cursorPosition:Int,
     elements: SnapshotStateList<Element>,
     newElement: Element?,
-    onCodeUpdate: (String) -> Unit
+    onCodeUpdate: (Int, String) -> Unit
 ) {
 
     fun calc(data: String): String {
@@ -279,7 +289,6 @@ fun updateValues(
             calcOpIndex = namingOpIndex
 
         } else if (recalculatingOpIndex != -1) {
-            println("recalculatingOpIndex: $recalculatingOpIndex")
             calcOp = recalculatingOp
             calcOpIndex = recalculatingOpIndex
         }
@@ -289,7 +298,6 @@ fun updateValues(
             && calcOpIndex + calcOp.length != line.length
         ) {
             println("line: $line")
-            println("recalculatingOpIndex2: $recalculatingOpIndex")
             //  Step: Обрабатываем именование
             // если слева однострочное значение
 
@@ -348,14 +356,13 @@ fun updateValues(
                 return isLastRecalculation
             }
 
+
             if (calcOp != recalculatingOp || isLastRecalculation()) {
                 val changedOp = " <= "
 
                 if (calcOp != recalculatingOp && left.contains(changedOp)) {
                     val changedOpIndex = left.indexOf(changedOp)
-                    println("xxx left a: $left")
                     left = left.substring(changedOpIndex + changedOp.length, namingOpIndex)
-                    println("xxx left b: $left")
                 }
                 //  Step: Обрабатываем значения (то что слева от = )
                 var calculatedLines = ""
@@ -553,8 +560,7 @@ fun updateValues(
                 println("elementValue: $elementValue")
                 val isNaming = namingOpIndex != -1
                 val isRecalculating = recalculatingOpIndex != -1
-                println("isNaming: $isNaming")
-                println("isRecalculating: $isRecalculating")
+
                 if (isNaming) {
                     // Step: Обновляем элементы
                     if (elementIndex != -1) {
@@ -629,23 +635,20 @@ fun updateValues(
                     val firstValueEndIndex = firstNamingIndex
                     val firstValue = source.substring(firstValueStartIndex, firstValueEndIndex)
 
-
-
-                    println("firstValue: $firstValue")
                     if (firstValue.contains(changedOp)) {
                         val startOldValueIndex = firstValue.indexOf(changedOp) + changedOp.length
                         val oldValue = source.substring(startOldValueIndex, firstValueEndIndex)
-                        println("oldValue: $oldValue | elementValue: $elementValue")
+
                         if (oldValue != elementValue) {
-                            println("replace")
                             source.replace(startOldValueIndex, firstValueEndIndex, elementValue)
-                            onCodeUpdate(source.toString())
                         }
 
                     } else {
                         source.insert(firstValueEndIndex, changedOp + elementValue)
-                        onCodeUpdate(source.toString())
                     }
+
+                    val newPosition = cursorPosition + source.length - code.length
+                    onCodeUpdate(newPosition, source.toString())
                 }
             }
         }
