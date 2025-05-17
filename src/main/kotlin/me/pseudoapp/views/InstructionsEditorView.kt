@@ -215,16 +215,24 @@ fun InstructionsEditorView(
 //                        selection = TextRange(0),
 //                    )
 
-val namesMap = mutableMapOf<Int, String>() // <Index, Name>
+
 val ends = listOf(
     "$", " ", "+", "-", "*", "/", "%", "=", "{", "(", ",", ";", "\n", "\t", "}", ")"
 )
 
 val emptyAbstractPlaces = mutableListOf<Element>()
 
+private fun String.firstContained(items: List<String>): String {
+    items.forEach {
+        if (this.contains(it)) return it
+    }
+
+    return ""
+}
+
 fun updateValues(
     code: String,
-    cursorPosition:Int,
+    cursorPosition: Int,
     elements: SnapshotStateList<Element>,
     newElement: Element?,
     onCodeUpdate: (Int, String) -> Unit
@@ -239,6 +247,7 @@ fun updateValues(
         }
     }
 
+    val namesMap = mutableMapOf<Int, String>() // <Index, Name>
     // detect value changed
     val source = StringBuilder(code)
 
@@ -272,14 +281,83 @@ fun updateValues(
     //  Step: обрабатываем каждую линию
 
     val lines = source.split("\n")
-    lines.forEachIndexed { i, line ->
+    lines.forEachIndexed { i, it ->
+        val namingOp = " = "
+
+        var line = it
+        // Step: Условный оператор // 1 == 1 ? true : false
+        val booleanOps = listOf(
+            "==", "!=", "<", ">", "<=", ">="
+        )
+        val conditionOp = line.firstContained(booleanOps)
+        if (conditionOp.isNotEmpty()) {
+            val conditionStartIndex = 0
+
+            val yesOp = " ? "
+            val noOp = " : "
+            val yesIndex = line.indexOf(yesOp)
+            val noIndex = line.indexOf(noOp)
+
+            val condition = line.substring(conditionStartIndex, yesIndex)
+
+            println("condition: $condition")
+            val yesValue = line.substring(yesIndex + yesOp.length, if (noIndex == -1) line.length else noIndex)
+            println("yesValue: $yesValue")
+
+//            var noEndIndex = line.indexOf(" = ", noIndex + noOp.length)
+//            if (noEndIndex == -1) {
+//                noEndIndex = line.indexOf(" => ", noIndex + noOp.length)
+//            }
+//            if (noEndIndex == -1) {
+//                noEndIndex = line.length
+//            }
+            val noValue = if (noIndex != -1) line.substring(noIndex + noOp.length, line.length) else ""
+            println("noValue: $noValue")
+
+            val leftRight = condition.split(conditionOp)
+            when (conditionOp) {
+                "==" -> {
+                    val l = leftRight[0].trim()
+                    val r = leftRight[1].trim()
+
+                    println("l = |$l|, r = |$r|")
+
+                    val yes = l == r
+                    line = if (yes) yesValue else noValue + ""
+                }
+
+                ">" -> {
+                    val l = leftRight[0].trim()
+                    val r = leftRight[1].trim()
+
+                    if (l.isDigitsOnly('.', '-') && r.isDigitsOnly('.', '-')) {
+                        line = if (l.toInt() > r.toInt()) yesValue else noValue
+                    } else {
+                        line = if (l.length > r.length) yesValue else noValue
+                    }
+                }
+
+                "<" -> {
+                    val l = leftRight[0].trim()
+                    val r = leftRight[1].trim()
+
+                    if (l.isDigitsOnly('.', '-') && r.isDigitsOnly('.', '-')) {
+                        line = if (l.toInt() < r.toInt()) yesValue else noValue
+                    } else {
+                        line = if (l.length < r.length) yesValue else noValue
+                    }
+                }
+            }
+        }
+        println("line 0: $line")
+
         val recalculatingOp = " => "
         val recalculatingOpIndex = line.lastIndexOf(recalculatingOp)
 
-        // если нашли знак = и справа от него имя,
+        // Step: если нашли знак = и справа от него имя,
         // то наполняем словарь тем что слева от =
 
-        val namingOp = " = "
+
         val namingOpIndex = line.lastIndexOf(namingOp)
 
         var calcOp = ""
