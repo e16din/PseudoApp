@@ -1,13 +1,11 @@
 
+12fff < 123222
+?
+yes = r
+:
+no = r
 
-
-        5 = c
-        {c == 6 ? true! : false!} = p
-
-        c == 6 ? true! = p:label
-        c != 6 ? false! = p:label
-
-        123 = result
+.
 
 =========== подставляем значения в имя
 
