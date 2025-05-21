@@ -371,116 +371,121 @@ fun updateValues(
 
                 //  Step: высчитываем и подставляем операции со строками/массивами
                 // слева направо
-                val startArrayOpIndex = valueLine.indexOf("[")
-                val endArrayOpIndex = valueLine.indexOf("]")
 
-                val startArrayIndex = endArrayOpIndex + 1
-                var endArrayIndex = valueLine.positionOf({
-                    ends.contains(it)
-                }, startArrayIndex)
-                if (endArrayIndex == -1) {
-                    endArrayIndex = valueLine.length
-                }
+                var startArrayOpIndex = valueLine.indexOf("[")
+                var endArrayOpIndex = valueLine.indexOf("]")
+                while (startArrayOpIndex != -1) {
+                    val startArrayIndex = endArrayOpIndex + 1
+                    var endArrayIndex = valueLine.positionOf({
+                        ends.contains(it)
+                    }, startArrayIndex)
+                    if (endArrayIndex == -1) {
+                        endArrayIndex = valueLine.length
+                    }
 
-                if (startArrayOpIndex != -1 && endArrayOpIndex != -1) {
-                    val op = valueLine.substring(startArrayOpIndex + 1, endArrayOpIndex)
-                    val value = valueLine.substring(startArrayIndex, endArrayIndex)
+                    if (startArrayOpIndex != -1 && endArrayOpIndex != -1) {
+                        val op = valueLine.substring(startArrayOpIndex + 1, endArrayOpIndex)
+                        val value = valueLine.substring(startArrayIndex, endArrayIndex)
 
-                    when {
-                        // переворачиваем данные(инвертируем порядок)
+                        when {
+                            // переворачиваем данные(инвертируем порядок)
 //                      [!]abcd
-                        op == "!" -> valueLine.replace(
-                            startArrayOpIndex,
-                            endArrayIndex,
-                            value.toString().reversed()
-                        )
+                            op == "!" -> valueLine.replace(
+                                startArrayOpIndex,
+                                endArrayIndex,
+                                value.toString().reversed()
+                            )
 
-                        // копируем элемент по номеру места
+                            // копируем элемент по номеру места
 //                      [2]abcd
-                        op.isDigitsOnly() -> valueLine.replace(
-                            startArrayOpIndex,
-                            endArrayIndex,
-                            "${value[op.toInt() - 1]}" // счет мест для заполнения начинается с 1-го
-                        )
+                            op.isDigitsOnly() -> valueLine.replace(
+                                startArrayOpIndex,
+                                endArrayIndex,
+                                "${value[op.toInt() - 1]}" // счет мест для заполнения начинается с 1-го
+                            )
 
-                        !op.startsWith("-") && !op.contains("<-") && op.contains("..") -> {
-                            val leftRight = op.split("..")
-                            val from = leftRight[0].trim().toInt() - 1
-                            val to = leftRight[1].trim().toInt()
-                            if (leftRight.size == 2) {
-                                valueLine.replace(
-                                    startArrayOpIndex,
-                                    endArrayIndex,
-                                    value.substring(from, to) // счет мест для заполнения начинается с 1-го
-                                )
+                            !op.startsWith("-") && !op.contains("<-") && op.contains("..") -> {
+                                val leftRight = op.split("..")
+                                val from = leftRight[0].trim().toInt() - 1
+                                val to = leftRight[1].trim().toInt()
+                                if (leftRight.size == 2) {
+                                    valueLine.replace(
+                                        startArrayOpIndex,
+                                        endArrayIndex,
+                                        value.substring(from, to) // счет мест для заполнения начинается с 1-го
+                                    )
+                                }
                             }
-                        }
 
-                        // удаляем элемент по номеру места
+                            // удаляем элемент по номеру места
 //                      [-2]abcd
-                        op.startsWith("-") && op.isDigitsOnly('-') -> valueLine.replace(
-                            startArrayOpIndex,
-                            endArrayIndex,
-                            value.removeRange(
-                                abs(op.toInt()) - 1,
-                                abs(op.toInt())
-                            ) // счет мест для заполнения начинается с 1-го
-                        )
+                            op.startsWith("-") && op.isDigitsOnly('-') -> valueLine.replace(
+                                startArrayOpIndex,
+                                endArrayIndex,
+                                value.removeRange(
+                                    abs(op.toInt()) - 1,
+                                    abs(op.toInt())
+                                ) // счет мест для заполнения начинается с 1-го
+                            )
 
-                        op.startsWith("-") && !op.contains("<-") && op.contains("..") -> {
-                            val leftRight = op.removePrefix("-")
-                                .split("..")
-                            val from = abs(leftRight[0].trim().toInt()) - 1
-                            val to = leftRight[1].trim().toInt()
-                            if (leftRight.size == 2) {
-                                valueLine.replace(
-                                    startArrayOpIndex,
-                                    endArrayIndex,
-                                    value.removeRange(from, to) // счет мест для заполнения начинается с 1-го
-                                )
+                            op.startsWith("-") && !op.contains("<-") && op.contains("..") -> {
+                                val leftRight = op.removePrefix("-")
+                                    .split("..")
+                                val from = abs(leftRight[0].trim().toInt()) - 1
+                                val to = leftRight[1].trim().toInt()
+                                if (leftRight.size == 2) {
+                                    valueLine.replace(
+                                        startArrayOpIndex,
+                                        endArrayIndex,
+                                        value.removeRange(from, to) // счет мест для заполнения начинается с 1-го
+                                    )
+                                }
                             }
-                        }
 
-                        // заполняем ячейку элемента данными по номеру места
+                            // заполняем ячейку элемента данными по номеру места
 //                      [2 <- x]abcd
-                        op.contains(" <- ") && !op.contains("..") -> {
-                            val leftRight = op.split(" <- ", limit = 2)
-                            if (leftRight.size == 2) {
-                                val i = leftRight[0].trim().toInt() - 1 // счет мест начинается с 1-го
-                                var v = leftRight[1].trim()
-                                if (v.startsWith("\"") && v.endsWith("\"")) {
-                                    v = v.removeSuffix("\"")
-                                        .removePrefix("\"")
+                            op.contains(" <- ") && !op.contains("..") -> {
+                                val leftRight = op.split(" <- ", limit = 2)
+                                if (leftRight.size == 2) {
+                                    val i = leftRight[0].trim().toInt() - 1 // счет мест начинается с 1-го
+                                    var v = leftRight[1].trim()
+                                    if (v.startsWith("\"") && v.endsWith("\"")) {
+                                        v = v.removeSuffix("\"")
+                                            .removePrefix("\"")
+                                    }
+                                    valueLine.replace(
+                                        startArrayOpIndex,
+                                        endArrayIndex,
+                                        value.replaceRange(i, i + 1, v)
+                                    )
                                 }
-                                valueLine.replace(
-                                    startArrayOpIndex,
-                                    endArrayIndex,
-                                    value.replaceRange(i, i + 1, v)
-                                )
                             }
-                        }
 
-                        op.contains(" <- ") && op.contains("..") -> {
+                            op.contains(" <- ") && op.contains("..") -> {
 
-                            val leftRightSet = op.split(" <- ", limit = 2)
-                            if (leftRightSet.size == 2) {
-                                val leftRightRange = op.split("..")
-                                val from = leftRightRange[0].trim().toInt() - 1
-                                val to = leftRightRange[1].trim().split(" ").first().toInt()
+                                val leftRightSet = op.split(" <- ", limit = 2)
+                                if (leftRightSet.size == 2) {
+                                    val leftRightRange = op.split("..")
+                                    val from = leftRightRange[0].trim().toInt() - 1
+                                    val to = leftRightRange[1].trim().split(" ").first().toInt()
 
-                                var v = leftRightSet[1].trim()
-                                if (v.startsWith("\"") && v.endsWith("\"")) {
-                                    v = v.removeSuffix("\"")
-                                        .removePrefix("\"")
+                                    var v = leftRightSet[1].trim()
+                                    if (v.startsWith("\"") && v.endsWith("\"")) {
+                                        v = v.removeSuffix("\"")
+                                            .removePrefix("\"")
+                                    }
+                                    valueLine.replace(
+                                        startArrayOpIndex,
+                                        endArrayIndex,
+                                        value.replaceRange(from, to, v)
+                                    )
                                 }
-                                valueLine.replace(
-                                    startArrayOpIndex,
-                                    endArrayIndex,
-                                    value.replaceRange(from, to, v)
-                                )
                             }
                         }
                     }
+
+                    startArrayOpIndex = valueLine.indexOf("[", endArrayOpIndex + 1)
+                    endArrayOpIndex = valueLine.indexOf("]", endArrayOpIndex + 1)
                 }
 
                 calculatedLines += valueLine.toString() + "\n"
@@ -559,12 +564,16 @@ fun updateValues(
                 }
 
                 " < " -> {
+//                    condition: 1 < [1]12945
+                    println("<<<<<<<<<<<")
                     val l = leftRight[0].trim()
                     val r = leftRight[1].trim()
 
                     if (l.isDigitsOnly('.', '-') && r.isDigitsOnly('.', '-')) {
+                        println("a l = |$l|, r = |$r|")
                         line = if (l.toInt() < r.toInt()) yesValue else noValue
                     } else {
+                        println("b l = |$l|, r = |$r|")
                         line = if (l.length < r.length) yesValue else noValue
                     }
                 }
