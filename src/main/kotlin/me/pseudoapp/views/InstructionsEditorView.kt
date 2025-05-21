@@ -43,6 +43,7 @@ fun InstructionsEditorView(
     newElement: MutableState<Element?>,
 ) {
     val instructionsRequester = remember { FocusRequester() }
+    var prevCodeValue by remember { mutableStateOf(TextFieldValue()) }
     var codeValue by remember { mutableStateOf(TextFieldValue()) }
 
     var isCodeCompletionEnabled by remember { mutableStateOf(false) }
@@ -76,13 +77,15 @@ fun InstructionsEditorView(
     LaunchedEffect(codeValue) {
         delay(210)
         try {
-            updateValues(
-                codeValue.text,
-                codeValue.selection.end,
-                elements,
-                newElement.value
-            ) { position, newCode ->
-                codeValue = codeValue.copy(text = newCode, selection = TextRange(position))
+            if (prevCodeValue.text != codeValue.text) {
+                updateValues(
+                    codeValue.text,
+                    codeValue.selection.end,
+                    elements,
+                    newElement.value
+                ) { position, newCode ->
+                    codeValue = codeValue.copy(text = newCode, selection = TextRange(position))
+                }
             }
         } catch (e: Exception) {
             e.printStackTrace()
@@ -165,6 +168,7 @@ fun InstructionsEditorView(
                 value = codeValue,
                 textStyle = textStyle,
                 onValueChange = {
+                    prevCodeValue = codeValue
                     codeValue = it
 
                     //isElementInserted = false
@@ -286,6 +290,14 @@ fun updateValues(
         val namingOp = " = "
 
         var line = it
+
+        var totalTextIndex = 0
+        var pointer = i - 1
+        while (pointer >= 0) {
+            totalTextIndex += lines[pointer].length + 1
+            pointer--
+        }
+
 
         fun calculateValues(data: String): String {
             //  Step: Обрабатываем значения (то что слева от = )
@@ -481,36 +493,50 @@ fun updateValues(
         val booleanOps = listOf(
             " == ", " != ", " < ", " > ", " <= ", " >= "
         )
+
         val conditionOp = line.firstContained(booleanOps)
         println("conditionOp: $conditionOp")
         if (conditionOp.isNotEmpty()) {
-            val conditionStartIndex = 0
+            val conditionStartIndex = 0 //totalTextIndex + 1
 
             val yesOp = " ? "
             val noOp = " : "
-            val yesIndex = line.indexOf(yesOp)
-            val noIndex = line.indexOf(noOp)
+            val endOp = "."
+            val yesIndex = line.indexOf(yesOp, conditionStartIndex)
+            val noIndex = line.indexOf(noOp, yesIndex)
+            val endIndex = line.indexOf(endOp, noIndex)
 
 
             var condition = line.substring(conditionStartIndex, yesIndex)
             condition = calculateValues(condition)
 
             println("condition: $condition")
-            val yesValue = line.substring(yesIndex + yesOp.length, if (noIndex == -1) line.length else noIndex)
+            val yesValue = line.substring(yesIndex + yesOp.length, if (noIndex == -1) endIndex else noIndex)
             println("yesValue: $yesValue")
+//            calculateValues(yesValue)
+//            if(yesValue.contains("\n")) { // если линий больше 1-й
+//
+//            }
 
-//            var noEndIndex = line.indexOf(" = ", noIndex + noOp.length)
-//            if (noEndIndex == -1) {
-//                noEndIndex = line.indexOf(" => ", noIndex + noOp.length)
-//            }
-//            if (noEndIndex == -1) {
-//                noEndIndex = line.length
-//            }
-            val noValue = if (noIndex != -1) line.substring(noIndex + noOp.length, line.length) else ""
+            val noValue = if (noIndex != -1) line.substring(noIndex + noOp.length, endIndex) else ""
             println("noValue: $noValue")
+//            calculateValues(noValue)
+//            if(noValue.contains("\n")) { // если линий больше 1-й
+//
+//            }
 
             val leftRight = condition.split(conditionOp)
             when (conditionOp) {
+                " != " -> {
+                    val l = leftRight[0].trim()
+                    val r = leftRight[1].trim()
+
+                    println("l = |$l|, r = |$r|")
+
+                    val yes = l != r
+                    line = if (yes) yesValue else noValue + ""
+                }
+
                 " == " -> {
                     val l = leftRight[0].trim()
                     val r = leftRight[1].trim()
@@ -579,15 +605,7 @@ fun updateValues(
             var left = line.substring(0, calcOpIndex)
             val right = line.substring(calcOpIndex + calcOp.length, line.length).trim()
 
-
-            var totalTextIndex = 0
-            var pointer = i - 1
-            while (pointer >= 0) {
-                totalTextIndex += lines[pointer].length + 1
-                pointer--
-            }
             totalTextIndex += calcOpIndex + 1
-
             // если слева многострочное значение
             if (left.trim() == "}") {
                 var closedBracketIndex = 0
@@ -706,6 +724,7 @@ fun updateValues(
                     }
 
                 } else if (isRecalculating) {
+                    // Step: Переписываем исходное значение в коде и пересчитывваем
                     val firstNamingIndex = source.indexOf(namingOp + elementName)
                     var firstValueStartIndex = source.positionOf(
                         {
