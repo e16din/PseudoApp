@@ -2,15 +2,18 @@ package me.pseudoapp.views
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.Divider
+import androidx.compose.material.Icon
+import androidx.compose.material.IconToggleButton
 import androidx.compose.material.Text
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.runtime.*
 import androidx.compose.runtime.snapshots.SnapshotStateList
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -45,6 +48,7 @@ fun InstructionsEditorView(
     val instructionsRequester = remember { FocusRequester() }
     var prevCodeValue by remember { mutableStateOf(TextFieldValue()) }
     var codeValue by remember { mutableStateOf(TextFieldValue()) }
+    var isPaused by remember { mutableStateOf(false) }
 
     var isCodeCompletionEnabled by remember { mutableStateOf(false) }
     var textFieldPosition by remember { mutableStateOf(Offset.Zero) }
@@ -75,20 +79,22 @@ fun InstructionsEditorView(
     }
 
     LaunchedEffect(codeValue) {
-        delay(210)
-        try {
-            if (prevCodeValue.text != codeValue.text) {
-                updateValues(
-                    codeValue.text,
-                    codeValue.selection.end,
-                    elements,
-                    newElement.value
-                ) { position, newCode ->
-                    codeValue = codeValue.copy(text = newCode, selection = TextRange(position))
+        if (!isPaused) {
+            delay(210)
+            try {
+                if (prevCodeValue.text != codeValue.text) {
+                    updateValues(
+                        codeValue.text,
+                        codeValue.selection.end,
+                        elements,
+                        newElement.value
+                    ) { position, newCode ->
+                        codeValue = codeValue.copy(text = newCode, selection = TextRange(position))
+                    }
                 }
+            } catch (e: Exception) {
+                e.printStackTrace()
             }
-        } catch (e: Exception) {
-            e.printStackTrace()
         }
     }
 
@@ -202,7 +208,44 @@ fun InstructionsEditorView(
             if (isCodeCompletionEnabled) {
                 completeCode()
             }
+
+            Row(Modifier.align(Alignment.BottomEnd)) {
+                IconToggleButton(
+                    isPaused,
+                    onCheckedChange = {
+                        isPaused = it
+                        if (!isPaused) {
+                            try {
+                                updateValues(
+                                    codeValue.text,
+                                    codeValue.selection.end,
+                                    elements,
+                                    newElement.value
+                                ) { _, _ ->
+                                    // do nothing
+                                }
+                            } catch (e: Exception) {
+                                e.printStackTrace()
+                            }
+                        }
+                    },
+                    content = {
+                        if (isPaused)
+                            Icon(
+                                Icons.Default.PlayArrow,
+                                contentDescription = "play"
+                            )
+                        else
+                            Icon(
+                                Icons.Default.Lock,
+                                "pause",
+                                tint = Color.LightGray
+                            )
+                    }
+                )
+            }
         }
+
     }
 }
 
@@ -221,7 +264,7 @@ fun InstructionsEditorView(
 
 
 val ends = listOf(
-    "$", " ", "+", "-", "*", "/", "%", "=", "{", "(", ",", ";", "\n", "\t", "}", ")"
+    "$", " ", "+", "-", "*", "/", "%", "=", "{", "(", ",", ";", "\n", "\t", "}", ")", "[", "]"
 )
 
 val emptyAbstractPlaces = mutableListOf<Element>()
