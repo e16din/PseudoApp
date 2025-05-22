@@ -46,6 +46,8 @@ fun InstructionsEditorView(
     var prevCodeValue by remember { mutableStateOf(TextFieldValue()) }
     var codeValue by remember { mutableStateOf(TextFieldValue()) }
     var isPaused by remember { mutableStateOf(false) }
+    var isCodeUpdated by remember { mutableStateOf(false) }
+    var isNextStepAllowed by remember { mutableStateOf(false) }
 
     var isCodeCompletionEnabled by remember { mutableStateOf(false) }
     var textFieldPosition by remember { mutableStateOf(Offset.Zero) }
@@ -63,20 +65,19 @@ fun InstructionsEditorView(
             text = newText,
             selection = TextRange(newText.length - newLine.length)
         )
-
-        updateValues(
-            codeValue.text,
-            codeValue.selection.end,
-            elements,
-            newElement.value
-        ) { _, _ ->
-            // do nothing
-        }
+//        updateValues(
+//            codeValue.text,
+//            codeValue.selection.end,
+//            elements,
+//            newElement.value
+//        ) { _, _ ->
+//            // do nothing
+//        }
         newElement.value = null
     }
 
-    LaunchedEffect(codeValue) {
-        if (!isPaused) {
+    LaunchedEffect(codeValue, isCodeUpdated) {
+        if (!isPaused || isNextStepAllowed) {
             delay(210)
             try {
                 if (prevCodeValue.text != codeValue.text) {
@@ -84,7 +85,8 @@ fun InstructionsEditorView(
                         codeValue.text,
                         codeValue.selection.end,
                         elements,
-                        newElement.value
+                        newElement.value,
+                        !isPaused || isNextStepAllowed
                     ) { position, newCode ->
                         codeValue = codeValue.copy(text = newCode, selection = TextRange(position))
                     }
@@ -92,6 +94,14 @@ fun InstructionsEditorView(
             } catch (e: Exception) {
                 e.printStackTrace()
             }
+
+            if (isNextStepAllowed) {
+                isNextStepAllowed = false
+            }
+        }
+
+        if (isCodeUpdated) {
+            isCodeUpdated = false
         }
     }
 
@@ -207,24 +217,11 @@ fun InstructionsEditorView(
             }
 
             Row(Modifier.align(Alignment.BottomEnd)) {
-                fun update() {
-                    try {
-                        updateValues(
-                            codeValue.text,
-                            codeValue.selection.end,
-                            elements,
-                            newElement.value
-                        ) { _, _ ->
-                            // do nothing
-                        }
-                    } catch (e: Exception) {
-                        e.printStackTrace()
-                    }
-                }
-
                 if (isPaused) {
                     Button(onClick = {
-                        update() /todo: implement lines debug mode
+                        isNextStepAllowed = true
+                        isCodeUpdated = true
+
 
                     }, Modifier.padding(horizontal = 21.dp)) {
                         Text("Next Step >")
@@ -236,7 +233,7 @@ fun InstructionsEditorView(
                     onCheckedChange = {
                         isPaused = it
                         if (!isPaused) {
-                            update()
+                            isCodeUpdated = true
                         }
                     },
                     content = {
@@ -287,11 +284,12 @@ private fun String.firstContained(items: List<String>): String {
     return ""
 }
 
-fun updateValues(
+suspend fun updateValues(
     code: String,
     cursorPosition: Int,
     elements: SnapshotStateList<Element>,
     newElement: Element?,
+    isNextStepAllowed: Boolean,
     onCodeUpdate: (Int, String) -> Unit
 ) {
 
@@ -339,6 +337,10 @@ fun updateValues(
 
     val lines = source.split("\n")
     lines.forEachIndexed { i, it ->
+        if (!isNextStepAllowed) {
+            delay(100)
+        }
+
         println("it 1: $it")
         val namingOp = " = "
 
@@ -479,7 +481,7 @@ fun updateValues(
                         // удаляем элемент по номеру места
 //                      [-2]abcd
                         op.startsWith("-") && op.isDigitsOnly('-') -> {
-                            / заменить оригинал
+//                            / заменить оригинал
                             valueLine.replace(
                                 startArrayOpIndex,
                                 endArrayIndex,
