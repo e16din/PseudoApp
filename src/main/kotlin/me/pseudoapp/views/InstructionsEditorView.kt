@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Lock
@@ -22,6 +23,7 @@ import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
@@ -45,12 +47,14 @@ fun InstructionsEditorView(
     val instructionsRequester = remember { FocusRequester() }
     var prevCodeValue by remember { mutableStateOf(TextFieldValue()) }
     var codeValue by remember { mutableStateOf(TextFieldValue()) }
+    var stepDelayMsValue by remember { mutableStateOf("") }
     var isPaused by remember { mutableStateOf(false) }
     var isCodeUpdated by remember { mutableStateOf(false) }
     var isNextStepAllowed by remember { mutableStateOf(false) }
 
     var isCodeCompletionEnabled by remember { mutableStateOf(false) }
     var textFieldPosition by remember { mutableStateOf(Offset.Zero) }
+    var currentStepLinePosition by remember { mutableStateOf(0) }
     var cursorOffsetInTextField by remember { mutableStateOf(Offset.Zero) }
 
     var layoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
@@ -86,8 +90,12 @@ fun InstructionsEditorView(
                         codeValue.selection.end,
                         elements,
                         newElement.value,
-                        !isPaused || isNextStepAllowed
-                    ) { position, newCode ->
+                        !isPaused || isNextStepAllowed,
+                        stepDelayMs = if (stepDelayMsValue.isEmpty()) 0 else stepDelayMsValue.toLong(),
+                        onNextLine = { i ->
+                            currentStepLinePosition = i
+                        }
+                    ) { line, position, newCode ->
                         codeValue = codeValue.copy(text = newCode, selection = TextRange(position))
                     }
                 }
@@ -173,9 +181,37 @@ fun InstructionsEditorView(
                 }
             }
         }
+
+        Row(
+            Modifier.offset(
+                x = 0.dp,
+                y = measureTextHeight("Height", textStyle, multiply = currentStepLinePosition),
+            ).background(Color.LightGray.copy(alpha = 0.3f))
+        ) {
+            Spacer(
+                Modifier
+                    .height(measureTextHeight("Height", textStyle))
+                    .fillMaxSize()
+            )
+        }
+
+
     }
 
     Column(Modifier.fillMaxSize()) {
+        OutlinedTextField(
+            value = stepDelayMsValue,
+            onValueChange = {
+                stepDelayMsValue = it
+            },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+            label = {
+                Text("Step Delay")
+            },
+            modifier = Modifier.width(120.dp)
+        )
+        Divider(Modifier.padding(4.dp))
         Box {
             BasicTextField(
                 value = codeValue,
@@ -284,13 +320,17 @@ private fun String.firstContained(items: List<String>): String {
     return ""
 }
 
+val elementIdToLineIndexMap = mutableMapOf<Int, Int>() // <id, line>
+
 suspend fun updateValues(
     code: String,
     cursorPosition: Int,
     elements: SnapshotStateList<Element>,
     newElement: Element?,
     isNextStepAllowed: Boolean,
-    onCodeUpdate: (Int, String) -> Unit
+    stepDelayMs: Long,
+    onNextLine: (Int) -> Unit,
+    onCodeUpdate: (Int, Int, String) -> Unit // line, position, value
 ) {
 
     fun calc(data: String): String {
@@ -301,34 +341,33 @@ suspend fun updateValues(
             unknown
         }
     }
-
-    val namesMap = mutableMapOf<Int, String>() // <Index, Name>
+    
     // detect value changed
     val source = StringBuilder(code)
 
     fun collectGarbage() {
-        // сборка мусора :)
-        // элементы которые мы удалили в коде - удаляем и на макете
-        val removedEntries = namesMap.entries.filter {
-            val name = it.value
-            !source.contains(name) || name.isBlank()
-        }
-        println("namesMap a: ${namesMap}")
-        for (entry in removedEntries) {
-            namesMap.remove(entry.key)
-        }
-        println("namesMap b: ${namesMap}")
-        val removed = elements.filter {
-            it.name != newElement?.name
-                    && !namesMap.values.contains(it.name)
-        }
-
-        emptyAbstractPlaces.addAll(removed.filter { it.isAbstract })
-
-        println("elements: ${elements.map { it.name }}")
-        println("removed: ${removed.map { it.name }}")
-        elements.removeAll(removed)
-        println("elements: ${elements.map { it.name }}")
+//        // сборка мусора :)
+//        // элементы которые мы удалили в коде - удаляем и на макете
+//        val removedEntries = elementIdToLineIndexMap.entries.filter {
+//            val lineIndex = it.value
+//            lineIndex != i || lineIndex.isBlank()
+//        }
+//        println("namesMap a: ${elementIdToLineIndexMap}")
+//        for (entry in removedEntries) {
+//            elementIdToLineIndexMap.remove(entry.key)
+//        }
+//        println("namesMap b: ${elementIdToLineIndexMap}")
+//        val removed = elements.filter {
+//            it.name != newElement?.name
+//                    && !elementIdToLineIndexMap.values.contains(it.name)
+//        }
+//
+//        emptyAbstractPlaces.addAll(removed.filter { it.isAbstract })
+//
+//        println("elements: ${elements.map { it.name }}")
+//        println("removed: ${removed.map { it.name }}")
+//        elements.removeAll(removed)
+//        println("elements: ${elements.map { it.name }}")
     }
 
     collectGarbage() // изменили код - собрали мусор
@@ -354,7 +393,9 @@ suspend fun updateValues(
         }
 
 
-        fun calculateValues(data: String): String {
+        suspend fun calculateValues(data: String): String {
+            onNextLine(i)
+            delay(stepDelayMs)
             //  Step: Обрабатываем значения (то что слева от = )
             var calculatedLines = ""
             data.split("\n").forEach { leftLine ->
@@ -581,7 +622,7 @@ suspend fun updateValues(
         val conditionOp = line.firstContained(booleanOps)
         println("conditionOp: $conditionOp")
         if (conditionOp.isNotEmpty()) {
-            val conditionStartIndex = 0 //totalTextIndex + 1
+            val conditionStartIndex = 0 // totalTextIndex + 1
 
             val yesOp = " ? "
             val noOp = " : "
@@ -593,21 +634,27 @@ suspend fun updateValues(
 
             var condition = line.substring(conditionStartIndex, yesIndex)
             condition = calculateValues(condition)
+            // {i+1}
+            // (i > 1)
+            // "i"
+            // ["i" -> 1]
+            // abcd_$x
+
+//            0 = i
+//            i < 12
+//            {i + 1} => i
+//            $i = result
+
+//            (i < 12)
+//            {i+1}
+//            []$i
 
             println("condition: $condition")
             val yesValue = line.substring(yesIndex + yesOp.length, if (noIndex == -1) endIndex else noIndex)
             println("yesValue: $yesValue")
-//            calculateValues(yesValue)
-//            if(yesValue.contains("\n")) { // если линий больше 1-й
-//
-//            }
 
             val noValue = if (noIndex != -1) line.substring(noIndex + noOp.length, endIndex) else ""
             println("noValue: $noValue")
-//            calculateValues(noValue)
-//            if(noValue.contains("\n")) { // если линий больше 1-й
-//
-//            }
 
             val leftRight = condition.split(conditionOp)
             when (conditionOp) {
@@ -718,15 +765,15 @@ suspend fun updateValues(
                 left = source.substring(openBracketIndex + 1, closedBracketIndex)
             }
 
-            namesMap.firstNotNullOfOrNull {
-                if (it.value == right && it.key != totalTextIndex)
-                    it
-                else
-                    null
-            }?.let {
-                namesMap.remove(it.key)
-            }
-            namesMap[totalTextIndex] = right
+//            elementIdToLineIndexMap.firstNotNullOfOrNull {
+//                if (it.value == right && it.key != totalTextIndex)
+//                    it
+//                else
+//                    null
+//            }?.let {
+//                elementIdToLineIndexMap.remove(it.key)
+//            }
+//            elementIdToLineIndexMap[totalTextIndex] = right
 
             collectGarbage() // изменили код - собрали мусор
 
@@ -772,10 +819,9 @@ suspend fun updateValues(
                             elements[editedElementIndex] =
                                 editedElement.copy(name = elementName, value = elementValue)
 
-                        } else if (!elementName.isBlank()) {
+                        } else if (!elementName.isBlank() && newElement?.name != elementName) {
                             println("e: added new element: $elementName")
                             // добавление новой абстракции
-
 
                             val stubElement = emptyAbstractPlaces.minByOrNull { it.area.top }
                             var area = stubElement?.area
@@ -813,23 +859,26 @@ suspend fun updateValues(
 
                 } else if (isRecalculating) {
                     // Step: Переписываем исходное значение в коде и пересчитывваем
-                    val firstNamingIndex = source.indexOf(namingOp + elementName)
-                    var firstValueStartIndex = source.positionOf(
+                    val lastNamingIndex = source.lastIndexOf(namingOp + elementName)
+                    var lastValueStartIndex = source.positionOf(
                         {
                             it == "\n"
                         },
-                        startIndex = firstNamingIndex,
+                        startIndex = lastNamingIndex,
                         fromEndToStart = true
                     ) + 1
-                    if (firstValueStartIndex == -1) {
-                        firstValueStartIndex = 0
+                    if (lastValueStartIndex == -1) {
+                        lastValueStartIndex = 0
                     }
 
 //                    val firstValue = source.substring(firstValueStartIndex, firstNamingIndex)
-                    source.replace(firstValueStartIndex, firstNamingIndex, elementValue)
+                    source.replace(lastValueStartIndex, lastNamingIndex, elementValue)
+
+                    val line = source.substring(0, lastValueStartIndex).count { it == '\n' }
+                    onNextLine(line)
 
                     val newPosition = cursorPosition + source.length - code.length
-                    onCodeUpdate(newPosition, source.toString())
+                    onCodeUpdate(line, newPosition, source.toString())
                 }
             }
         }

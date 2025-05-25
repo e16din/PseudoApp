@@ -1,19 +1,12 @@
 package me.pseudoapp.other
 
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.toComposeImageBitmap
-import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import java.awt.FileDialog
 import java.awt.Frame
 import java.awt.Toolkit
@@ -47,14 +40,17 @@ fun measureTextWidth(text: String, style: TextStyle = TextStyle.Default): Dp {
     return with(LocalDensity.current) { widthInPixels.toDp() }
 }
 
+
 @Composable
-fun measureTextHeight(text: String, style: TextStyle = TextStyle.Default): Dp {
+fun measureTextHeight(text: String, style: TextStyle = TextStyle.Default, multiply: Int = 1): Dp {
     val textMeasurer = rememberTextMeasurer()
-    val widthInPixels = textMeasurer.measure(text, style).size.height
+    val widthInPixels = textMeasurer.measure(text, style).size.height * multiply
     return with(LocalDensity.current) { widthInPixels.toDp() }
 }
 
 @Composable
-fun Float.pxToDp(): Dp {
-    return with(LocalDensity.current) { this@pxToDp.toDp() }
-}
+fun Float.pxToDp() = with(LocalDensity.current) { this@pxToDp.toDp() }
+
+
+@Composable
+fun Dp.dpToPx() = with(LocalDensity.current) { this@dpToPx.toPx() }
