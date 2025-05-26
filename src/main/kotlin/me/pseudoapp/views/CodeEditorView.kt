@@ -40,7 +40,7 @@ import kotlin.math.abs
 const val unknown = "?"
 
 @Composable
-fun InstructionsEditorView(
+fun CodeEditorView(
     elements: SnapshotStateList<Element>,
     newElement: MutableState<Element?>,
 ) {

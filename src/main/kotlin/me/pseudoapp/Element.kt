@@ -11,5 +11,6 @@ data class Element(
     val color: Color,
     val isCircle: Boolean = true, // Circle\Rect
     val isAbstract: Boolean = true, // Real\Abstract
-    val index:Int = -1
+    val index:Int = -1,
+    val createdMs: Long = System.currentTimeMillis()
 )

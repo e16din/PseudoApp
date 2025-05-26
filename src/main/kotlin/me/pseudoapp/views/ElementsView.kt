@@ -29,15 +29,12 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInParent
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import me.pseudoapp.*
 import me.pseudoapp.other.dpToPx
 import me.pseudoapp.other.measureTextHeight
@@ -48,7 +45,7 @@ import kotlin.math.min
 
 
 @Composable
-fun LayoutView(
+fun ElementsView(
     ctrlPressed: MutableState<Boolean>,
     shiftPressed: MutableState<Boolean>,
     selectedImage: ImageBitmap?,
@@ -223,7 +220,10 @@ fun LayoutView(
                         textNameValues.add(i, it)
                     }
                 },
-                textStyle = TextStyle.Default.copy(textAlign = TextAlign.Center),
+                textStyle = TextStyle.Default.copy(
+                    textAlign = TextAlign.Center,
+                    fontWeight = FontWeight.Bold
+                ),
                 modifier = Modifier
                     .offset(
                         x = x.dp,
