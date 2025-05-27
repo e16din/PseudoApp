@@ -3,7 +3,8 @@ package me.pseudoapp
 data class Instruction(
     var text: String,
     val type: Type,
-    val createdMs: Long = System.currentTimeMillis()
+    val position: Int,
+    val inCondition:Boolean = false
 ) {
     enum class Type {
         NameValue, //  anything = a
