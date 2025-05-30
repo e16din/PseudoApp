@@ -31,30 +31,30 @@ fun InstructionsLineView(
     @Composable
     fun buttons(position: Int, withCondition: Boolean = true) {
         Row(Modifier.padding(top = 8.dp, start = if (withCondition) 0.dp else 24.dp)) {
-            val nameValue = " = "
-            Text(
-                nameValue,
-                color = Color.White,
-                style = LocalTextStyle.current.copy(textAlign = TextAlign.Center),
-                modifier = Modifier
-                    .clip(RoundedCornerShape(4.dp))
-                    .background(RainbowColor.Blue.color)
-                    .padding(end = 4.dp)
-                    .width(36.dp)
-                    .clickable {
-                        instructions.add(
-                            position,
-                            Instruction(
-                                text = nameValue,
-                                type = Instruction.Type.NameValue,
-                                position = instructions.size,
-                                inCondition = !withCondition
-                            )
-                        )
-                    }
-            )
+//            val nameValue = " = "
+//            Text(
+//                nameValue,
+//                color = Color.White,
+//                style = LocalTextStyle.current.copy(textAlign = TextAlign.Center),
+//                modifier = Modifier
+//                    .clip(RoundedCornerShape(4.dp))
+//                    .background(RainbowColor.Blue.color)
+//                    .padding(end = 4.dp)
+//                    .width(36.dp)
+//                    .clickable {
+//                        instructions.add(
+//                            position,
+//                            Instruction(
+//                                text = nameValue,
+//                                type = Instruction.Type.NameValue,
+//                                position = instructions.size,
+//                                inCondition = !withCondition
+//                            )
+//                        )
+//                    }
+//            )
 
-            Spacer(Modifier.width(8.dp))
+//            Spacer(Modifier.width(8.dp))
 
             val resetValue = " => "
             Text(
@@ -146,16 +146,17 @@ fun InstructionsLineView(
                     Row {
 
                         Text(
-                            "+",
+                            " + ",
                             color = Color.White,
                             style = LocalTextStyle.current.copy(textAlign = TextAlign.Center),
                             modifier = Modifier
+                                .padding(end = 6.dp)
                                 .clip(RoundedCornerShape(4.dp))
-                                .background(Color.LightGray.copy(alpha = 0.5f))
-//                                .padding(end = 4.dp)
-                                .width(16.dp)
+                                .background(Color.LightGray)
+                                .padding(end = 4.dp)
+                                .width(24.dp)
                                 .clickable {
-                                    //add buttons
+
                                 }
                         )
 
@@ -191,61 +192,81 @@ fun InstructionsLineView(
 
                                 instructions[index] = it.copy(inCondition = inCondition)
                             }
-
                         }
 
-                        IconButton(
-                            onClick = {
-                                instructions.removeAt(i)
-                                if (i != instructions.size) {
-                                    instructions[i] = instructions[i].copy(position = i)
+                        Text(
+                            " ⏷ ",
+                            color = Color.White,
+                            style = LocalTextStyle.current.copy(textAlign = TextAlign.Center),
+                            modifier = Modifier
+                                .padding(end = 6.dp)
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(Color.LightGray)
+                                .padding(start = 4.dp, end = 4.dp)
+                                .width(24.dp)
+                                .clickable {
+                                    instructions.removeAt(i)
+                                    if (i != instructions.size) {
+                                        instructions[i] = instructions[i].copy(position = i)
+                                    }
+                                    instructions.add(i + 1, instruction.copy(position = i + 1))
+                                    reformat()
                                 }
-                                instructions.add(i + 1, instruction.copy(position = i + 1))
-                                reformat()
-                            },
-                            content = {
-                                Icon(Icons.Default.KeyboardArrowDown, "Down")
-                            }
                         )
-                        IconButton(
-                            onClick = {
-                                instructions.removeAt(i)
-                                if (i != instructions.size) {
-                                    instructions[i] = instructions[i].copy(position = i)
+
+                        Text(
+                            " ⏶ ",
+                            color = Color.White,
+                            style = LocalTextStyle.current.copy(textAlign = TextAlign.Center),
+                            modifier = Modifier
+                                .padding(end = 6.dp)
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(Color.LightGray)
+                                .padding(end = 4.dp)
+                                .width(24.dp)
+                                .clickable {
+                                    instructions.removeAt(i)
+                                    if (i != instructions.size) {
+                                        instructions[i] = instructions[i].copy(position = i)
+                                    }
+                                    instructions.add(i - 1, instruction.copy(position = i - 1))
+                                    reformat()
                                 }
-                                instructions.add(i - 1, instruction.copy(position = i - 1))
-                                reformat()
-                            },
-                            content = {
-                                Icon(Icons.Default.KeyboardArrowUp, "Up")
-                            }
                         )
+
                         Spacer(Modifier.width(24.dp))
 
-                        IconButton(
-                            onClick = {
-                                instructions.removeAt(i)
-                                if (i != instructions.size) {
-                                    instructions[i] = instructions[i].copy(position = i)
-                                }
 
-                                if (instruction.type == Instruction.Type.StartCondition) {
-                                    for (index in i until instructions.size) {
-                                        if (instructions[index].type == Instruction.Type.EndCondition) {
-                                            instructions.removeAt(index)
-                                            if(index != instructions.size) {
-                                                instructions[index] = instructions[index].copy(position = index)
+                        Text(
+                            " ⛌ ", // ⨯
+                            color = Color.White,
+                            style = LocalTextStyle.current.copy(textAlign = TextAlign.Center),
+                            modifier = Modifier
+                                .padding(end = 6.dp)
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(Color.LightGray)
+                                .padding(end = 4.dp)
+                                .width(24.dp)
+                                .clickable {
+                                    instructions.removeAt(i)
+                                    if (i != instructions.size) {
+                                        instructions[i] = instructions[i].copy(position = i)
+                                    }
+
+                                    if (instruction.type == Instruction.Type.StartCondition) {
+                                        for (index in i until instructions.size) {
+                                            if (instructions[index].type == Instruction.Type.EndCondition) {
+                                                instructions.removeAt(index)
+                                                if(index != instructions.size) {
+                                                    instructions[index] = instructions[index].copy(position = index)
+                                                }
+                                                break
                                             }
-                                            break
                                         }
                                     }
-                                }
 
-                                reformat()
-                            },
-                            content = {
-                                Icon(Icons.Default.Delete, "Delete")
-                            }
+                                    reformat()
+                                }
                         )
                     }
 

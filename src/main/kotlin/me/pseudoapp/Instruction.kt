@@ -7,7 +7,7 @@ data class Instruction(
     val inCondition:Boolean = false
 ) {
     enum class Type {
-        NameValue, //  anything = a
+//        NameValue, //  anything = a
         ResetValue, // {1+1} => a
         StartCondition, // a < b ?
         EndCondition // .

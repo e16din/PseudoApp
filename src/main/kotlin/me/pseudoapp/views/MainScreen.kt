@@ -88,7 +88,7 @@ fun MainScreen() {
             Card(
                 Modifier
                     .padding( 12.dp)
-                    .width(420.dp)
+                    .width(460.dp)
                 ,
                 border = BorderStroke(2.dp, Color.LightGray),
 //                backgroundColor = Color.Black

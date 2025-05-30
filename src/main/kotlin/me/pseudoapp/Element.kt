@@ -6,7 +6,7 @@ import androidx.compose.ui.graphics.Color
 
 data class Element(
     var name: String,
-    var value: String,
+    var value: String, // instruction
     val area: Rect,
     val color: Color,
     val isCircle: Boolean = true, // Circle\Rect
