@@ -6,11 +6,12 @@ import androidx.compose.ui.graphics.Color
 
 data class Element(
     var name: String,
-    var value: String, // instruction
+    var condition: String,
+    var action: String,// value
+    var result: String,
     val area: Rect,
     val color: Color,
-    val isCircle: Boolean = true, // Circle\Rect
-    val isAbstract: Boolean = true, // Real\Abstract
-    val index:Int = -1,
+    val isAbstract: Boolean = true, // Circle\Rect
+    val isFilled: Boolean = true, // Real\Abstract
     val createdMs: Long = System.currentTimeMillis()
 )

@@ -22,7 +22,6 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.input.key.*
 import androidx.compose.ui.unit.dp
 import me.pseudoapp.Element
-import me.pseudoapp.Instruction
 import me.pseudoapp.other.pickImage
 
 
@@ -30,8 +29,6 @@ import me.pseudoapp.other.pickImage
 fun MainScreen() {
     var selectedImage by remember { mutableStateOf<ImageBitmap?>(null) }
     val elements = remember { mutableStateListOf<Element>() }
-    val instructions = remember { mutableStateListOf<Instruction>() }
-//    val undoElements = remember { mutableStateListOf<Element>() }
     val keyboardRequester = remember { FocusRequester() }
 
     val ctrlPressed = remember { mutableStateOf(false) }
@@ -83,17 +80,6 @@ fun MainScreen() {
                     },
                     modifier = Modifier
                 )
-            }
-
-            Card(
-                Modifier
-                    .padding( 12.dp)
-                    .width(460.dp)
-                ,
-                border = BorderStroke(2.dp, Color.LightGray),
-//                backgroundColor = Color.Black
-            ) {
-                InstructionsLineView(instructions)
             }
 
 //            Card(

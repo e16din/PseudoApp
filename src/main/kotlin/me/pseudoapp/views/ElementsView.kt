@@ -1,29 +1,25 @@
 package me.pseudoapp.views
 
-import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.*
 import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.CutCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.material.Divider
+import androidx.compose.material.DropdownMenu
+import androidx.compose.material.DropdownMenuItem
+import androidx.compose.material.Text
 import androidx.compose.runtime.*
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.PathEffect
-import androidx.compose.ui.graphics.Shape
-import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawOutline
+import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
@@ -34,6 +30,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import me.pseudoapp.*
 import me.pseudoapp.other.dpToPx
@@ -44,6 +41,7 @@ import kotlin.math.max
 import kotlin.math.min
 
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ElementsView(
     ctrlPressed: MutableState<Boolean>,
@@ -57,32 +55,32 @@ fun ElementsView(
     var endPoint by remember { mutableStateOf<Offset?>(null) }
 
     var dragEnd by remember { mutableStateOf(false) }
+    var elementWithMenuId by remember { mutableStateOf<Int?>(null) }
 
-    val textValueValues = remember { mutableStateListOf<String>() }
+    val textActionValues = remember { mutableStateListOf<String>() }
+    val textResultValues = remember { mutableStateListOf<String>() }
     val textNameValues = remember { mutableStateListOf<String>() }
+
 
     LaunchedEffect(dragEnd) {
         if (!dragEnd) {
             return@LaunchedEffect
         }
 
-        val isCircle = !ctrlPressed.value
+        val isAbstract = ctrlPressed.value
+        val isFilled = shiftPressed.value
 
-        var name = currentColor.name
+        var name = if (isAbstract) "" else currentColor.name
 
-        name += if (isCircle) {
-            "Circle"
-        } else {
-            "Rect"
-        }
-
-        if (elements.size >= RainbowColor.entries.size) {
+        if (elements.any { it.name == name }) {
             name += elements.size / RainbowColor.entries.size
         }
 
         val newElement = Element(
             name = name,
-            value = "",
+            condition = "",
+            action = "",
+            result = "",
             area = Rect(
                 Offset(
                     min(startPoint!!.x, endPoint!!.x),
@@ -94,8 +92,8 @@ fun ElementsView(
                 )
             ),
             color = currentColor.color,
-            isCircle = isCircle,
-            isAbstract = shiftPressed.value,
+            isAbstract = isAbstract,
+            isFilled = isFilled,
         )
         elements.add(newElement)
 
@@ -107,7 +105,8 @@ fun ElementsView(
         onNewElement(newElement)
 
         textNameValues.add(newElement.name)
-        textValueValues.add(newElement.value)
+        textActionValues.add(newElement.action)
+        textResultValues.add(newElement.action)
     }
 
     var rootRect by remember { mutableStateOf(Rect(Offset.Zero, Offset.Zero)) }
@@ -184,22 +183,22 @@ fun ElementsView(
             }
 
             elements.forEach { element ->
-                if (element.isCircle) {
-                    drawCircle(
-                        color = element.color,
-                        center = element.area.center,
-                        radius = element.area.size.width / 2,
-                        style = if (element.isAbstract) Fill else Stroke(width = 2f)
-                    )
-
-                } else {
+                if (element.isAbstract) {
                     drawRoundRect(
                         color = element.color,
                         topLeft = element.area.topLeft,
                         size = element.area.size,
                         cornerRadius = CornerRadius(2f, 2f),
-                        style = if (element.isAbstract) Fill else Stroke(width = 2f)
+                        style = if (element.isFilled) Fill else Stroke(width = 2f)
                     )
+                } else {
+                    drawCircle(
+                        color = element.color,
+                        center = element.area.center,
+                        radius = element.area.size.width / 2,
+                        style = if (element.isFilled) Fill else Stroke(width = 2f)
+                    )
+
                 }
             }
         }
@@ -210,44 +209,60 @@ fun ElementsView(
             val textHeight = measureTextHeight(element.name)
             val x = element.area.left + element.area.width / 2 - textWidth.dpToPx() / 2f
             val y = element.area.top + 4.dp.dpToPx()
-            BasicTextField(
-                value = textNameValues[i],
-                onValueChange = {
-                    element.name = it
-                    if (textNameValues.size > i) {
-                        textNameValues[i] = it
-                    } else {
-                        textNameValues.add(i, it)
-                    }
-                },
-                textStyle = TextStyle.Default.copy(
-                    textAlign = TextAlign.Center,
-                    fontWeight = FontWeight.Bold
-                ),
-                modifier = Modifier
-                    .offset(
-                        x = x.dp,
-                        y = y.dp
-                    )
-                    .width(textWidth)
+
+            Row(
+                Modifier.offset(
+                    x = x.dp,
+                    y = y.dp
+                )
+            ) {
+
+                BasicTextField(
+                    value = textNameValues[i],
+                    onValueChange = {
+                        element.name = it
+                        if (textNameValues.size > i) {
+                            textNameValues[i] = it
+                        } else {
+                            textNameValues.add(i, it)
+                        }
+                    },
+                    textStyle = TextStyle.Default.copy(
+                        textAlign = TextAlign.Center,
+                        fontWeight = FontWeight.Bold
+                    ),
+                    modifier = Modifier.width(textWidth)
 //                    .dashedBorder(
 //                        color = element.color.copy(alpha = 0.42f),
 //                        shape = CutCornerShape(4.dp)
 //                    )
-            )
+                )
 
-            val textWidth2 = measureTextWidth(element.value) + 24.dp
-            val textHeight2 = measureTextHeight(element.value)
+                Text(
+                    " ⋮ ",
+                    color = Color.White,
+                    modifier = Modifier
+                        .clip(CircleShape)
+                        .background(element.color.copy(alpha = 0.32f))
+                        .clickable {
+                            elementWithMenuId = i
+                        }
+                        .padding(bottom = 2.dp)
+                )
+            }
+
+            val textWidth2 = measureTextWidth(element.action) + 24.dp
+            val textHeight2 = measureTextHeight(element.action)
             val x2 = element.area.left + element.area.width / 2 - textWidth2.dpToPx() / 2f
             val y2 = element.area.top + 0.dp.dpToPx() + element.area.height / 2 - textHeight2.dpToPx() / 2f
             BasicTextField(
-                value = textValueValues[i],
+                value = textActionValues[i],
                 onValueChange = {
-                    element.value = it
-                    if (textValueValues.size > i) {
-                        textValueValues[i] = it
+                    element.action = it
+                    if (textActionValues.size > i) {
+                        textActionValues[i] = it
                     } else {
-                        textValueValues.add(i, it)
+                        textActionValues.add(i, it)
                     }
                 },
                 textStyle = TextStyle.Default.copy(textAlign = TextAlign.Center),
@@ -262,6 +277,72 @@ fun ElementsView(
                         shape = CutCornerShape(4.dp)
                     )
             )
+
+            val textWidth3 = measureTextWidth(element.result) + 24.dp
+            val textHeight3 = measureTextHeight(element.result)
+            val x3 = element.area.left + element.area.width / 2 - textWidth3.dpToPx() / 2f
+            val y3 = element.area.top + 0.dp.dpToPx() + element.area.height - textHeight3.dpToPx() / 2f
+            BasicTextField(
+                value = textResultValues[i],
+                onValueChange = {
+                    element.result = it
+                    if (textResultValues.size > i) {
+                        textResultValues[i] = it
+                    } else {
+                        textResultValues.add(i, it)
+                    }
+                },
+                textStyle = TextStyle.Default.copy(
+                    textAlign = TextAlign.Center,
+                    color = Color.White,
+                    fontWeight = FontWeight.Medium),
+                modifier = Modifier
+                    .offset(
+                        x = x3.dp,
+                        y = y3.dp
+                    )
+                    .width(textWidth3)
+                    .border(
+                        1.dp,
+                        color = element.color,
+                        shape = CircleShape
+                    )
+                    .clip(CircleShape)
+                    .background(element.color.copy(alpha = 0.82f))
+                    .padding(vertical = 2.dp)
+            )
+        }
+
+        if (elementWithMenuId != null) {
+            val e = elements[elementWithMenuId!!]
+
+            DropdownMenu(
+                expanded = true,
+                onDismissRequest = { elementWithMenuId = null },
+                offset = DpOffset(
+                    x = e.area.left.dp,
+                    y = e.area.top.dp
+                ),
+                modifier = Modifier
+            ) {
+                DropdownMenuItem(
+                    content = { Text("Dive In") },
+                    onClick = {
+                        elementWithMenuId = null
+                    }
+                )
+                Divider()
+                DropdownMenuItem(
+                    content = { Text("Delete") },
+                    onClick = {
+                        elements.removeAt(elementWithMenuId!!)
+                        textNameValues.removeAt(elementWithMenuId!!)
+                        textActionValues.removeAt(elementWithMenuId!!)
+                        textResultValues.removeAt(elementWithMenuId!!)
+                        elementWithMenuId = null
+                    }
+                )
+            }
         }
 
     }
