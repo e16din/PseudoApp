@@ -1,22 +1,21 @@
 package me.pseudoapp.views
 
 
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.material.Button
-import androidx.compose.material.Card
+import androidx.compose.material.ButtonDefaults
+import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.input.key.*
@@ -27,8 +26,9 @@ import me.pseudoapp.other.pickImage
 
 @Composable
 fun MainScreen() {
+
     var selectedImage by remember { mutableStateOf<ImageBitmap?>(null) }
-    val elements = remember { mutableStateListOf<Element>() }
+
     val keyboardRequester = remember { FocusRequester() }
 
     val ctrlPressed = remember { mutableStateOf(false) }
@@ -65,21 +65,72 @@ fun MainScreen() {
             Text("Выбрать изображение")
         }
 
+        var rootElement = remember {
+            Element(
+                name = mutableStateOf("App"),
+                condition = mutableStateOf(""),
+                action = mutableStateOf(""),
+                result = mutableStateOf(""),
+                area = Rect(
+                    topLeft = Offset.Zero,
+                    bottomRight = Offset.Zero
+                ),
+                color = Color.White
+            )
+        }
+        var selectedElement by remember { mutableStateOf(rootElement) }
+        val diveElements = remember { mutableStateListOf<Element>(rootElement) }
         Row {
-            Box(
-                Modifier.weight(1f)
-                    .padding(12.dp)
-            ) {
-                ElementsView(
-                    ctrlPressed,
-                    shiftPressed,
-                    selectedImage,
-                    elements,
-                    onNewElement = { element ->
-                        newElement.value = element
-                    },
-                    modifier = Modifier
-                )
+            Column {
+                Row {
+                    for (it in diveElements) {
+                        Button(
+                            onClick = {
+                                selectedElement = it
+                                var selected = false
+
+                                val removed = mutableListOf<Element>()
+                                for (it in diveElements) {
+                                    if (!selected && it.name == selectedElement.name) {
+                                        selected = true
+                                        continue
+                                    }
+                                    if (selected) {
+                                        removed.add(it)
+                                    }
+                                }
+                                diveElements.removeAll(removed)
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                backgroundColor = if (it.name == selectedElement.name) MaterialTheme.colors.primary.copy(
+                                    alpha = 0.62f
+                                ) else MaterialTheme.colors.primary
+                            ),
+                            modifier = Modifier.padding(start = 8.dp)
+                        ) {
+                            Text(it.name.value)
+                        }
+                    }
+                }
+                Box(
+                    Modifier.weight(1f)
+                        .padding(12.dp)
+                ) {
+                    ElementsView(
+                        ctrlPressed,
+                        shiftPressed,
+                        selectedImage,
+                        onNewElement = { element ->
+                            newElement.value = element
+                        },
+                        onDiveInClick = {
+                            selectedElement = it
+                            diveElements.add(selectedElement)
+                        },
+                        element = selectedElement,
+                        modifier = Modifier
+                    )
+                }
             }
 
 //            Card(

@@ -6,12 +6,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.CutCornerShape
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.material.Divider
-import androidx.compose.material.DropdownMenu
-import androidx.compose.material.DropdownMenuItem
-import androidx.compose.material.Text
+import androidx.compose.material.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
@@ -24,7 +20,6 @@ import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
@@ -47,8 +42,9 @@ fun ElementsView(
     ctrlPressed: MutableState<Boolean>,
     shiftPressed: MutableState<Boolean>,
     selectedImage: ImageBitmap?,
-    elements: SnapshotStateList<Element>,
     onNewElement: (Element) -> Unit,
+    onDiveInClick: (Element) -> Unit,
+    element: Element,
     modifier: Modifier
 ) {
     var startPoint by remember { mutableStateOf<Offset?>(null) }
@@ -57,9 +53,7 @@ fun ElementsView(
     var dragEnd by remember { mutableStateOf(false) }
     var elementWithMenuId by remember { mutableStateOf<Int?>(null) }
 
-    val textActionValues = remember { mutableStateListOf<String>() }
-    val textResultValues = remember { mutableStateListOf<String>() }
-    val textNameValues = remember { mutableStateListOf<String>() }
+    var elements =  element.elements
 
 
     LaunchedEffect(dragEnd) {
@@ -72,15 +66,15 @@ fun ElementsView(
 
         var name = if (isAbstract) "" else currentColor.name
 
-        if (elements.any { it.name == name }) {
+        if (elements.any { it.name.value == name }) {
             name += elements.size / RainbowColor.entries.size
         }
 
         val newElement = Element(
-            name = name,
-            condition = "",
-            action = "",
-            result = "",
+            name = mutableStateOf(name),
+            condition = mutableStateOf(""),
+            action = mutableStateOf(""),
+            result = mutableStateOf(""),
             area = Rect(
                 Offset(
                     min(startPoint!!.x, endPoint!!.x),
@@ -103,248 +97,227 @@ fun ElementsView(
         currentColor = nextColor()
 
         onNewElement(newElement)
-
-        textNameValues.add(newElement.name)
-        textActionValues.add(newElement.action)
-        textResultValues.add(newElement.action)
     }
 
     var rootRect by remember { mutableStateOf(Rect(Offset.Zero, Offset.Zero)) }
     val textMeasurer = rememberTextMeasurer()
 
-    Box(
-        modifier = modifier
-            .fillMaxSize()
-            .onGloballyPositioned { coordinates ->
-                val topLeft = coordinates.positionInParent()
-                rootRect = Rect(
-                    topLeft,
-                    Offset(
-                        topLeft.x + coordinates.size.width.toFloat(),
-                        topLeft.y + coordinates.size.height.toFloat()
+        Box(
+            modifier = modifier
+                .fillMaxSize()
+                .onGloballyPositioned { coordinates ->
+                    val topLeft = Offset.Zero // coordinates.positionInParent()
+                    rootRect = Rect(
+                        topLeft,
+                        Offset(
+                            topLeft.x + coordinates.size.width.toFloat(),
+                            topLeft.y + coordinates.size.height.toFloat()
+                        )
                     )
-                )
-                layoutRect = rootRect
-            }
+                    layoutRect = rootRect
+                }
 
-    ) {
+        ) {
+            Canvas(
+                modifier = Modifier.fillMaxSize()
+                    .pointerInput(Unit) {
+                        detectDragGestures(
+                            onDragStart = { offset ->
+                                startPoint = offset
+                            },
+                            onDrag = { change, dragAmount ->
+                                change.consume()
 
-        Canvas(
-            modifier = Modifier.fillMaxSize()
-                .pointerInput(Unit) {
-                    detectDragGestures(
-                        onDragStart = { offset ->
-                            startPoint = offset
-                        },
-                        onDrag = { change, dragAmount ->
-                            change.consume()
-
-                            startPoint?.let { start ->
-                                endPoint = if (endPoint == null) {
-                                    start + dragAmount
-                                } else {
-                                    endPoint!! + dragAmount
+                                startPoint?.let { start ->
+                                    endPoint = if (endPoint == null) {
+                                        start + dragAmount
+                                    } else {
+                                        endPoint!! + dragAmount
+                                    }
                                 }
+                            },
+                            onDragEnd = {
+                                dragEnd = true
                             }
-                        },
-                        onDragEnd = {
-                            dragEnd = true
-                        }
-                    )
-                }) {
+                        )
+                    }) {
 
-            selectedImage?.let {
-                drawImage(it)
-            }
+                selectedImage?.let {
+                    drawImage(it)
+                }
 
-            drawRect(
-                color = Color.Black.copy(alpha = 0.3f),
-                topLeft = rootRect.topLeft,
-                size = rootRect.size,
-                style = Stroke(
-                    width = 1f,
-                    pathEffect =
-                        PathEffect.dashPathEffect(floatArrayOf(10f, 5f), phase = 0f)
-                )
-            )
-
-            endPoint?.let {
                 drawRect(
-                    color = currentColor.color.copy(alpha = 0.3f),
-                    topLeft = Offset(
-                        min(startPoint!!.x, endPoint!!.x),
-                        min(startPoint!!.y, endPoint!!.y)
-                    ),
-                    size = Size(
-                        width = abs(startPoint!!.x - endPoint!!.x),
-                        height = abs(startPoint!!.y - endPoint!!.y)
+                    color = Color.Black.copy(alpha = 0.3f),
+                    topLeft = rootRect.topLeft,
+                    size = rootRect.size,
+                    style = Stroke(
+                        width = 1f,
+                        pathEffect =
+                            PathEffect.dashPathEffect(floatArrayOf(10f, 5f), phase = 0f)
                     )
                 )
-            }
 
-            elements.forEach { element ->
-                if (element.isAbstract) {
-                    drawRoundRect(
-                        color = element.color,
-                        topLeft = element.area.topLeft,
-                        size = element.area.size,
-                        cornerRadius = CornerRadius(2f, 2f),
-                        style = if (element.isFilled) Fill else Stroke(width = 2f)
+                endPoint?.let {
+                    drawRect(
+                        color = currentColor.color.copy(alpha = 0.3f),
+                        topLeft = Offset(
+                            min(startPoint!!.x, endPoint!!.x),
+                            min(startPoint!!.y, endPoint!!.y)
+                        ),
+                        size = Size(
+                            width = abs(startPoint!!.x - endPoint!!.x),
+                            height = abs(startPoint!!.y - endPoint!!.y)
+                        )
                     )
-                } else {
-                    drawCircle(
-                        color = element.color,
-                        center = element.area.center,
-                        radius = element.area.size.width / 2,
-                        style = if (element.isFilled) Fill else Stroke(width = 2f)
-                    )
+                }
 
+                elements.forEach { element ->
+                    if (element.isAbstract) {
+                        drawRoundRect(
+                            color = element.color,
+                            topLeft = element.area.topLeft,
+                            size = element.area.size,
+                            cornerRadius = CornerRadius(2f, 2f),
+                            style = if (element.isFilled) Fill else Stroke(width = 2f)
+                        )
+                    } else {
+                        drawCircle(
+                            color = element.color,
+                            center = element.area.center,
+                            radius = element.area.size.width / 2,
+                            style = if (element.isFilled) Fill else Stroke(width = 2f)
+                        )
+
+                    }
                 }
             }
-        }
 
 
-        elements.forEachIndexed { i, element ->
-            val textWidth = measureTextWidth(element.name) + 8.dp
-            val textHeight = measureTextHeight(element.name)
-            val x = element.area.left + element.area.width / 2 - textWidth.dpToPx() / 2f
-            val y = element.area.top + 4.dp.dpToPx()
+            elements.forEachIndexed { i, element ->
+                val textWidth = measureTextWidth(element.name.value) + 8.dp
+                val textHeight = measureTextHeight(element.name.value)
+                val x = element.area.left + element.area.width / 2 - textWidth.dpToPx() / 2f
+                val y = element.area.top + 4.dp.dpToPx()
 
-            Row(
-                Modifier.offset(
-                    x = x.dp,
-                    y = y.dp
-                )
-            ) {
+                Row(
+                    Modifier.offset(
+                        x = x.dp,
+                        y = y.dp
+                    )
+                ) {
 
-                BasicTextField(
-                    value = textNameValues[i],
-                    onValueChange = {
-                        element.name = it
-                        if (textNameValues.size > i) {
-                            textNameValues[i] = it
-                        } else {
-                            textNameValues.add(i, it)
-                        }
-                    },
-                    textStyle = TextStyle.Default.copy(
-                        textAlign = TextAlign.Center,
-                        fontWeight = FontWeight.Bold
-                    ),
-                    modifier = Modifier.width(textWidth)
+                    BasicTextField(
+                        value = elements[i].name.value,
+                        onValueChange = {
+                            element.name.value = it
+                        },
+                        textStyle = TextStyle.Default.copy(
+                            textAlign = TextAlign.Center,
+                            fontWeight = FontWeight.Bold
+                        ),
+                        modifier = Modifier.width(textWidth)
 //                    .dashedBorder(
 //                        color = element.color.copy(alpha = 0.42f),
 //                        shape = CutCornerShape(4.dp)
 //                    )
-                )
+                    )
 
-                Text(
-                    " ⋮ ",
-                    color = Color.White,
+                    Text(
+                        " ⋮ ",
+                        color = Color.White,
+                        modifier = Modifier
+                            .clip(CircleShape)
+                            .background(element.color.copy(alpha = 0.32f))
+                            .clickable {
+                                elementWithMenuId = i
+                            }
+                            .padding(bottom = 2.dp)
+                    )
+                }
+
+                val textWidth2 = measureTextWidth(element.action.value) + 24.dp
+                val textHeight2 = measureTextHeight(element.action.value)
+                val x2 = element.area.left + element.area.width / 2 - textWidth2.dpToPx() / 2f
+                val y2 = element.area.top + 0.dp.dpToPx() + element.area.height / 2 - textHeight2.dpToPx() / 2f
+                BasicTextField(
+                    value = elements[i].action.value,
+                    onValueChange = {
+                        element.action.value = it
+                    },
+                    textStyle = TextStyle.Default.copy(textAlign = TextAlign.Center),
                     modifier = Modifier
+                        .offset(
+                            x = x2.dp,
+                            y = y2.dp
+                        )
+                        .width(textWidth2)
+                        .dashedBorder(
+                            color = element.color.copy(alpha = 0.42f),
+                            shape = CutCornerShape(4.dp)
+                        )
+                )
+
+                val textWidth3 = measureTextWidth(element.result.value) + 24.dp
+                val textHeight3 = measureTextHeight(element.result.value)
+                val x3 = element.area.left + element.area.width / 2 - textWidth3.dpToPx() / 2f
+                val y3 = element.area.top + 0.dp.dpToPx() + element.area.height - textHeight3.dpToPx() / 2f
+                BasicTextField(
+                    value = elements[i].result.value,
+                    onValueChange = {
+                        element.result.value = it
+                    },
+                    textStyle = TextStyle.Default.copy(
+                        textAlign = TextAlign.Center,
+                        color = Color.White,
+                        fontWeight = FontWeight.Medium
+                    ),
+                    modifier = Modifier
+                        .offset(
+                            x = x3.dp,
+                            y = y3.dp
+                        )
+                        .width(textWidth3)
+                        .border(
+                            1.dp,
+                            color = element.color,
+                            shape = CircleShape
+                        )
                         .clip(CircleShape)
-                        .background(element.color.copy(alpha = 0.32f))
-                        .clickable {
-                            elementWithMenuId = i
+                        .background(element.color.copy(alpha = 0.82f))
+                        .padding(vertical = 2.dp)
+                )
+            }
+
+            if (elementWithMenuId != null) {
+                val e = elements[elementWithMenuId!!]
+
+                DropdownMenu(
+                    expanded = true,
+                    onDismissRequest = { elementWithMenuId = null },
+                    offset = DpOffset(
+                        x = e.area.left.dp,
+                        y = e.area.top.dp
+                    ),
+                    modifier = Modifier
+                ) {
+                    DropdownMenuItem(
+                        content = { Text("Dive In") },
+                        onClick = {
+                            onDiveInClick(elements[elementWithMenuId!!])
+
+                            elementWithMenuId = null
                         }
-                        .padding(bottom = 2.dp)
-                )
+                    )
+                    Divider()
+                    DropdownMenuItem(
+                        content = { Text("Delete") },
+                        onClick = {
+                            elements.removeAt(elementWithMenuId!!)
+                            elementWithMenuId = null
+                        }
+                    )
+                }
             }
-
-            val textWidth2 = measureTextWidth(element.action) + 24.dp
-            val textHeight2 = measureTextHeight(element.action)
-            val x2 = element.area.left + element.area.width / 2 - textWidth2.dpToPx() / 2f
-            val y2 = element.area.top + 0.dp.dpToPx() + element.area.height / 2 - textHeight2.dpToPx() / 2f
-            BasicTextField(
-                value = textActionValues[i],
-                onValueChange = {
-                    element.action = it
-                    if (textActionValues.size > i) {
-                        textActionValues[i] = it
-                    } else {
-                        textActionValues.add(i, it)
-                    }
-                },
-                textStyle = TextStyle.Default.copy(textAlign = TextAlign.Center),
-                modifier = Modifier
-                    .offset(
-                        x = x2.dp,
-                        y = y2.dp
-                    )
-                    .width(textWidth2)
-                    .dashedBorder(
-                        color = element.color.copy(alpha = 0.42f),
-                        shape = CutCornerShape(4.dp)
-                    )
-            )
-
-            val textWidth3 = measureTextWidth(element.result) + 24.dp
-            val textHeight3 = measureTextHeight(element.result)
-            val x3 = element.area.left + element.area.width / 2 - textWidth3.dpToPx() / 2f
-            val y3 = element.area.top + 0.dp.dpToPx() + element.area.height - textHeight3.dpToPx() / 2f
-            BasicTextField(
-                value = textResultValues[i],
-                onValueChange = {
-                    element.result = it
-                    if (textResultValues.size > i) {
-                        textResultValues[i] = it
-                    } else {
-                        textResultValues.add(i, it)
-                    }
-                },
-                textStyle = TextStyle.Default.copy(
-                    textAlign = TextAlign.Center,
-                    color = Color.White,
-                    fontWeight = FontWeight.Medium),
-                modifier = Modifier
-                    .offset(
-                        x = x3.dp,
-                        y = y3.dp
-                    )
-                    .width(textWidth3)
-                    .border(
-                        1.dp,
-                        color = element.color,
-                        shape = CircleShape
-                    )
-                    .clip(CircleShape)
-                    .background(element.color.copy(alpha = 0.82f))
-                    .padding(vertical = 2.dp)
-            )
-        }
-
-        if (elementWithMenuId != null) {
-            val e = elements[elementWithMenuId!!]
-
-            DropdownMenu(
-                expanded = true,
-                onDismissRequest = { elementWithMenuId = null },
-                offset = DpOffset(
-                    x = e.area.left.dp,
-                    y = e.area.top.dp
-                ),
-                modifier = Modifier
-            ) {
-                DropdownMenuItem(
-                    content = { Text("Dive In") },
-                    onClick = {
-                        elementWithMenuId = null
-                    }
-                )
-                Divider()
-                DropdownMenuItem(
-                    content = { Text("Delete") },
-                    onClick = {
-                        elements.removeAt(elementWithMenuId!!)
-                        textNameValues.removeAt(elementWithMenuId!!)
-                        textActionValues.removeAt(elementWithMenuId!!)
-                        textResultValues.removeAt(elementWithMenuId!!)
-                        elementWithMenuId = null
-                    }
-                )
-            }
-        }
-
     }
 }
 
