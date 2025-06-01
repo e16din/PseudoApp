@@ -336,7 +336,7 @@ fun ElementsView(
                     content = { Text("Delete") },
                     onClick = {
                         elements.removeAt(elementWithMenuId!!)
-
+                        calcInstructions(elements, contentElement)
                         elementWithMenuId = null
                     }
                 )
@@ -382,9 +382,10 @@ fun Modifier.dashedBorder(
 
 
 fun calcInstructions(elements: SnapshotStateList<Element>, element: Element) {
-    element.elements.forEach {
-        calcInstructions(elements, it)
-    }
+    element.elements.sortedBy { it.area.top }
+        .forEach {
+            calcInstructions(elements, it)
+        }
 
     val action = element.action.value
     val resetAction = "=>"
