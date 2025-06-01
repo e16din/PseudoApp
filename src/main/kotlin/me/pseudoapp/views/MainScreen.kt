@@ -70,7 +70,7 @@ fun MainScreen() {
                 name = mutableStateOf("App"),
                 condition = mutableStateOf(""),
                 action = mutableStateOf(""),
-                result = mutableStateOf(""),
+                value = mutableStateOf(""),
                 area = Rect(
                     topLeft = Offset.Zero,
                     bottomRight = Offset.Zero
@@ -117,6 +117,7 @@ fun MainScreen() {
                         .padding(12.dp)
                 ) {
                     ElementsView(
+                        keyboardRequester,
                         ctrlPressed,
                         shiftPressed,
                         selectedImage,
@@ -127,7 +128,7 @@ fun MainScreen() {
                             selectedElement = it
                             diveElements.add(selectedElement)
                         },
-                        element = selectedElement,
+                        contentElement = selectedElement,
                         modifier = Modifier
                     )
                 }
