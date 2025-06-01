@@ -34,6 +34,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
+import com.github.murzagalin.evaluator.Evaluator
 import me.pseudoapp.*
 import me.pseudoapp.other.dpToPx
 import me.pseudoapp.other.measureTextHeight
@@ -81,7 +82,6 @@ fun ElementsView(
         val newElement = Element(
             name = mutableStateOf(name),
             condition = mutableStateOf(""),
-            action = mutableStateOf(""),
             value = mutableStateOf(""),
             area = Rect(
                 Offset(
@@ -256,59 +256,46 @@ fun ElementsView(
                 )
             }
 
-            val textWidth2 = measureTextWidth(element.action.value) + 24.dp
-            val textHeight2 = measureTextHeight(element.action.value)
+            val textWidth2 = measureTextWidth(element.value.value) + 24.dp
+            val textHeight2 = measureTextHeight(element.value.value)
             val x2 = element.area.left + element.area.width / 2 - textWidth2.dpToPx() / 2f
             val y2 = element.area.top + 0.dp.dpToPx() + element.area.height / 2 - textHeight2.dpToPx() / 2f
-            BasicTextField(
-                value = elements[i].action.value,
-                onValueChange = {
-                    element.action.value = it
-
-                    calcInstructions(elements, contentElement)
-                },
-                textStyle = TextStyle.Default.copy(textAlign = TextAlign.Center),
-                modifier = Modifier
-                    .offset(
-                        x = x2.dp,
-                        y = y2.dp
-                    )
-                    .width(textWidth2)
-                    .dashedBorder(
-                        color = element.color.copy(alpha = 0.42f),
-                        shape = CutCornerShape(4.dp)
-                    )
-            )
-
-            val textWidth3 = measureTextWidth(element.value.value) + 24.dp
-            val textHeight3 = measureTextHeight(element.value.value)
-            val x3 = element.area.left + element.area.width / 2 - textWidth3.dpToPx() / 2f
-            val y3 = element.area.top + 0.dp.dpToPx() + element.area.height - textHeight3.dpToPx() / 2f
             BasicTextField(
                 value = elements[i].value.value,
                 onValueChange = {
                     element.value.value = it
+
+                    if (element.isAbstract) {
+                        calcInstructions(elements, contentElement)
+                    }
                 },
-                textStyle = TextStyle.Default.copy(
-                    textAlign = TextAlign.Center,
-                    color = Color.White,
-                    fontWeight = FontWeight.Medium
-                ),
-                modifier = Modifier
-                    .offset(
-                        x = x3.dp,
-                        y = y3.dp
+                textStyle = TextStyle.Default.copy(textAlign = TextAlign.Center),
+                modifier = if (!element.isAbstract)
+                    Modifier.offset(
+                        x = x2.dp,
+                        y = y2.dp
                     )
-                    .width(textWidth3)
-                    .border(
-                        1.dp,
-                        color = element.color,
-                        shape = CircleShape
+                        .width(textWidth2)
+                        .border(
+                            1.dp,
+                            color = element.color,
+                            shape = CircleShape
+                        )
+                        .clip(CircleShape)
+                        .background(element.color.copy(alpha = 0.82f))
+                        .padding(vertical = 2.dp)
+                else
+                    Modifier.offset(
+                        x = x2.dp,
+                        y = y2.dp
                     )
-                    .clip(CircleShape)
-                    .background(element.color.copy(alpha = 0.82f))
-                    .padding(vertical = 2.dp)
+                        .width(textWidth2)
+                        .dashedBorder(
+                            color = element.color.copy(alpha = 0.42f),
+                            shape = CutCornerShape(4.dp)
+                        )
             )
+
         }
 
         if (elementWithMenuId != null) {
@@ -380,20 +367,46 @@ fun Modifier.dashedBorder(
     cap: StrokeCap = StrokeCap.Round
 ) = dashedBorder(brush = SolidColor(color), shape, strokeWidth, dashLength, gapLength, cap)
 
-
+val mathEvaluator = Evaluator()
 fun calcInstructions(elements: SnapshotStateList<Element>, element: Element) {
     element.elements.sortedBy { it.area.top }
         .forEach {
             calcInstructions(elements, it)
         }
 
-    val action = element.action.value
+    var action = element.value.value
+
+    var index = action.indexOf(":")
+    var endIndex = action.indexOf(" ", index)
+    while (index != -1 && endIndex != -1 &&  index+1 != endIndex) {
+        val a = action.substring(index+1, endIndex)
+        println("a: $a")
+        val b = element.elements.firstOrNull { it.name.value == a }?.value?.value
+        println("b: $b")
+        b?.let {
+            action = action.replaceFirst(":$a", b)
+        }
+        index = action.indexOf(":", endIndex)
+        endIndex = action.indexOf(" ", index)
+    }
+
+    // 0x123242 => :color
+    // Result => :name
+
     val resetAction = "=>"
     when {
         // # i + 1 => i
         action.contains(resetAction) -> {
             val leftRight = action.split(resetAction)
-            val value = leftRight[0].trim()
+            var value = leftRight[0].trim()
+
+            try {
+                value = mathEvaluator.evaluateDouble(leftRight[0].trim())
+                    .toString()
+                    .removeSuffix(".0")
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
             val name = leftRight[1].trim()
 
             val updated = mutableListOf<Int>()

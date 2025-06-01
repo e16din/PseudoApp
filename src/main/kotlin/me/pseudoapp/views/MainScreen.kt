@@ -65,11 +65,10 @@ fun MainScreen() {
             Text("Выбрать изображение")
         }
 
-        var rootElement = remember {
+        val rootElement = remember {
             Element(
                 name = mutableStateOf("App"),
                 condition = mutableStateOf(""),
-                action = mutableStateOf(""),
                 value = mutableStateOf(""),
                 area = Rect(
                     topLeft = Offset.Zero,
