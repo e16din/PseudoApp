@@ -64,6 +64,10 @@ fun ElementsView(
 
     val elements = contentElement.elements
 
+    LaunchedEffect(Unit) {
+        println("contentElement: ${contentElement.name.value}")
+        calcInstructions(elements, contentElement)
+    }
 
     LaunchedEffect(dragEnd) {
         if (!dragEnd) {
@@ -81,7 +85,7 @@ fun ElementsView(
 
         val newElement = Element(
             name = mutableStateOf(name),
-            condition = mutableStateOf(""),
+            action = mutableStateOf(""),
             value = mutableStateOf(""),
             area = Rect(
                 Offset(
@@ -211,8 +215,8 @@ fun ElementsView(
             }
         }
 
-
-        elements.forEachIndexed { i, element ->
+        @Composable
+        fun addRealElementView(element: Element, i: Int) {
             val textWidth = measureTextWidth(element.name.value) + 8.dp
             val textHeight = measureTextHeight(element.name.value)
             val x = element.area.left + element.area.width / 2 - textWidth.dpToPx() / 2f
@@ -237,10 +241,10 @@ fun ElementsView(
                         fontWeight = FontWeight.Bold
                     ),
                     modifier = Modifier.width(textWidth)
-//                    .dashedBorder(
-//                        color = element.color.copy(alpha = 0.42f),
-//                        shape = CutCornerShape(4.dp)
-//                    )
+                    //                    .dashedBorder(
+                    //                        color = element.color.copy(alpha = 0.42f),
+                    //                        shape = CutCornerShape(4.dp)
+                    //                    )
                 )
 
                 Text(
@@ -270,7 +274,7 @@ fun ElementsView(
                     }
                 },
                 textStyle = TextStyle.Default.copy(textAlign = TextAlign.Center),
-                modifier = if (!element.isAbstract)
+                modifier =
                     Modifier.offset(
                         x = x2.dp,
                         y = y2.dp
@@ -284,7 +288,69 @@ fun ElementsView(
                         .clip(CircleShape)
                         .background(element.color.copy(alpha = 0.82f))
                         .padding(vertical = 2.dp)
-                else
+            )
+        }
+
+        @Composable
+        fun addAbstractElementView(element: Element, i: Int) {
+            val textWidth = measureTextWidth(element.name.value) + 8.dp
+            val textHeight = measureTextHeight(element.name.value)
+            val x = element.area.left + element.area.width / 2 - textWidth.dpToPx() / 2f
+            val y = element.area.top + 4.dp.dpToPx()
+
+            Row(
+                Modifier.offset(
+                    x = x.dp,
+                    y = y.dp
+                )
+            ) {
+
+                BasicTextField(
+                    value = elements[i].name.value,
+                    onValueChange = {
+                        element.name.value = it
+
+                        calcInstructions(elements, contentElement)
+                    },
+                    textStyle = TextStyle.Default.copy(
+                        textAlign = TextAlign.Center,
+                        fontWeight = FontWeight.Bold
+                    ),
+                    modifier = Modifier.width(textWidth)
+                    //                    .dashedBorder(
+                    //                        color = element.color.copy(alpha = 0.42f),
+                    //                        shape = CutCornerShape(4.dp)
+                    //                    )
+                )
+
+                Text(
+                    " ⋮ ",
+                    color = Color.White,
+                    modifier = Modifier
+                        .clip(CircleShape)
+                        .background(element.color.copy(alpha = 0.32f))
+                        .clickable {
+                            elementWithMenuId = i
+                        }
+                        .padding(bottom = 2.dp)
+                )
+            }
+
+            val textWidth2 = measureTextWidth(element.action.value) + 24.dp
+            val textHeight2 = measureTextHeight(element.action.value)
+            val x2 = element.area.left + element.area.width / 2 - textWidth2.dpToPx() / 2f
+            val y2 = element.area.top + 0.dp.dpToPx() + element.area.height / 2 - textHeight2.dpToPx() / 2f
+            BasicTextField(
+                value = elements[i].action.value,
+                onValueChange = {
+                    element.action.value = it
+
+                    if (element.isAbstract) {
+                        calcInstructions(elements, contentElement)
+                    }
+                },
+                textStyle = TextStyle.Default.copy(textAlign = TextAlign.Center),
+                modifier =
                     Modifier.offset(
                         x = x2.dp,
                         y = y2.dp
@@ -296,6 +362,43 @@ fun ElementsView(
                         )
             )
 
+            val textWidth3 = measureTextWidth(element.value.value) + 24.dp
+            val textHeight3 = measureTextHeight(element.value.value)
+            val x3 = element.area.left + element.area.width / 2 - textWidth3.dpToPx() / 2f
+            val y3 = element.area.top + 0.dp.dpToPx() + element.area.height - textHeight3.dpToPx() / 2f
+            BasicTextField(
+                value = elements[i].value.value,
+                onValueChange = {
+                    element.value.value = it
+                },
+                textStyle = TextStyle.Default.copy(
+                    textAlign = TextAlign.Center,
+                    color = Color.White,
+                    fontWeight = FontWeight.Medium
+                ),
+                modifier = Modifier
+                    .offset(
+                        x = x3.dp,
+                        y = y3.dp
+                    )
+                    .width(textWidth3)
+                    .border(
+                        1.dp,
+                        color = element.color,
+                        shape = CircleShape
+                    )
+                    .clip(CircleShape)
+                    .background(element.color.copy(alpha = 0.82f))
+                    .padding(vertical = 2.dp)
+            )
+        }
+
+        elements.forEachIndexed { i, element ->
+            if (element.isAbstract) {
+                addAbstractElementView(element, i)
+            } else {
+                addRealElementView(element, i)
+            }
         }
 
         if (elementWithMenuId != null) {
@@ -374,12 +477,12 @@ fun calcInstructions(elements: SnapshotStateList<Element>, element: Element) {
             calcInstructions(elements, it)
         }
 
-    var action = element.value.value
+    var action = element.action.value
 
     var index = action.indexOf(":")
     var endIndex = action.indexOf(" ", index)
-    while (index != -1 && endIndex != -1 &&  index+1 != endIndex) {
-        val a = action.substring(index+1, endIndex)
+    while (index != -1 && endIndex != -1 && index + 1 != endIndex) {
+        val a = action.substring(index + 1, endIndex)
         println("a: $a")
         val b = element.elements.firstOrNull { it.name.value == a }?.value?.value
         println("b: $b")
@@ -389,6 +492,8 @@ fun calcInstructions(elements: SnapshotStateList<Element>, element: Element) {
         index = action.indexOf(":", endIndex)
         endIndex = action.indexOf(" ", index)
     }
+
+    element.value.value = action
 
     // 0x123242 => :color
     // Result => :name

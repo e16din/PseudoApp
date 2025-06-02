@@ -68,7 +68,8 @@ fun MainScreen() {
         val rootElement = remember {
             Element(
                 name = mutableStateOf("App"),
-                condition = mutableStateOf(""),
+//                condition = mutableStateOf(""),
+                action = mutableStateOf(""),
                 value = mutableStateOf(""),
                 area = Rect(
                     topLeft = Offset.Zero,
