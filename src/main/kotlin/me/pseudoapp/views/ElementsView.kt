@@ -550,15 +550,13 @@ fun calcInstructions(elements: SnapshotStateList<Element>, element: Element): Bo
         }
 
     var action = element.action.value
-    println("action11: $action")
 
     var index = action.indexOf(":")
     var endIndex = action.indexOf(" ", index)
     while (index != -1 && endIndex != -1 && index + 1 != endIndex) {
         val a = action.substring(index + 1, endIndex)
-        println("a: $a")
         val b = element.elements.firstOrNull { it.name.value == a }?.value?.value
-        println("b: $b")
+
         b?.let {
             action = action.replaceFirst(":$a", b)
         }
@@ -569,17 +567,12 @@ fun calcInstructions(elements: SnapshotStateList<Element>, element: Element): Bo
     elements.forEach { e ->
         val name = e.name.value
         if (!name.isEmpty()) {
-            println("action0: $action")
-            println("name0: $name")
             index = action.indexOf(name)
             endIndex = action.indexOf(" ", index)
             while (index != -1 && endIndex != -1 && index != endIndex && endIndex - index == name.length) {
                 val a = action.substring(index, endIndex)
-                println("action a: $action")
-                println("name: $a")
-
                 val b = elements.firstOrNull { it.name.value == name }?.value?.value
-                println("action b: $action")
+
                 b?.let {
                     action = action.replaceFirst(a, b)
                 }
@@ -593,8 +586,9 @@ fun calcInstructions(elements: SnapshotStateList<Element>, element: Element): Bo
 
     // 0x123242 => :color
     // Result => :name
+    // :size
 
-    val questionOp = "?"
+    val questionOp = " ? "
     var needToDo = true
     if (action.contains(questionOp)) {
         val condition = action.split(questionOp)[0]
@@ -603,6 +597,8 @@ fun calcInstructions(elements: SnapshotStateList<Element>, element: Element): Bo
         val booleanOps = listOf(
             " == ", " != ", " < ", " > ", " <= ", " >= "
         )
+
+
 
         val conditionOp = condition.firstContained(booleanOps)
 
@@ -631,24 +627,48 @@ fun calcInstructions(elements: SnapshotStateList<Element>, element: Element): Bo
                 val r = leftRight[1].trim()
 
                 if (l.isDigitsOnly('.', '-') && r.isDigitsOnly('.', '-')) {
-                    needToDo = l.toInt() > r.toInt()
+                    needToDo = l.toDouble() > r.toDouble()
                 } else {
-                    needToDo = l.length > r.length
+                    needToDo = false
+                }
+            }
+
+            " >= " -> {
+                val l = leftRight[0].trim()
+                val r = leftRight[1].trim()
+
+                if (l.isDigitsOnly('.', '-') && r.isDigitsOnly('.', '-')) {
+                    needToDo = l.toDouble() >= r.toDouble()
+                } else {
+                    needToDo = false
                 }
             }
 
             " < " -> {
 //                    condition: 1 < [1]12945
-                println("<<<<<<<<<<<")
                 val l = leftRight[0].trim()
                 val r = leftRight[1].trim()
 
                 if (l.isDigitsOnly('.', '-') && r.isDigitsOnly('.', '-')) {
                     println("a l = |$l|, r = |$r|")
-                    needToDo = l.toInt() < r.toInt()
+                    needToDo = l.toDouble() < r.toDouble()
                 } else {
                     println("b l = |$l|, r = |$r|")
-                    needToDo = l.length < r.length
+                    needToDo = false
+                }
+            }
+
+            " <= " -> {
+//                    condition: 1 < [1]12945
+                val l = leftRight[0].trim()
+                val r = leftRight[1].trim()
+
+                if (l.isDigitsOnly('.', '-') && r.isDigitsOnly('.', '-')) {
+                    println("a l = |$l|, r = |$r|")
+                    needToDo = l.toDouble() <= r.toDouble()
+                } else {
+                    println("b l = |$l|, r = |$r|")
+                    needToDo = false
                 }
             }
         }
