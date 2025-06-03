@@ -6,12 +6,14 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.CutCornerShape
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.material.Divider
-import androidx.compose.material.DropdownMenu
-import androidx.compose.material.DropdownMenuItem
-import androidx.compose.material.Text
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.runtime.*
 import androidx.compose.runtime.snapshots.SnapshotStateList
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
@@ -29,14 +31,17 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import com.github.murzagalin.evaluator.Evaluator
+import kotlinx.coroutines.delay
 import me.pseudoapp.*
 import me.pseudoapp.other.dpToPx
+import me.pseudoapp.other.isDigitsOnly
 import me.pseudoapp.other.measureTextHeight
 import me.pseudoapp.other.measureTextWidth
 import kotlin.math.abs
@@ -64,9 +69,26 @@ fun ElementsView(
 
     val elements = contentElement.elements
 
+    var stepDelayMsValue by remember { mutableStateOf("200") }
+    var isPaused by remember { mutableStateOf(false) }
+    var isNextStepAllowed by remember { mutableStateOf(false) }
+
+
     LaunchedEffect(Unit) {
         println("contentElement: ${contentElement.name.value}")
-        calcInstructions(elements, contentElement)
+        while (true) {
+            val delayMs = if (stepDelayMsValue.isEmpty()) 0 else stepDelayMsValue.toLong()
+            delay(delayMs)
+            if (!isPaused || isNextStepAllowed) {
+                isNextStepAllowed = false
+
+                try {
+                    calcInstructions(elements, contentElement)
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+        }
     }
 
     LaunchedEffect(dragEnd) {
@@ -233,8 +255,6 @@ fun ElementsView(
                     value = elements[i].name.value,
                     onValueChange = {
                         element.name.value = it
-
-                        calcInstructions(elements, contentElement)
                     },
                     textStyle = TextStyle.Default.copy(
                         textAlign = TextAlign.Center,
@@ -268,12 +288,12 @@ fun ElementsView(
                 value = elements[i].value.value,
                 onValueChange = {
                     element.value.value = it
-
-                    if (element.isAbstract) {
-                        calcInstructions(elements, contentElement)
-                    }
                 },
-                textStyle = TextStyle.Default.copy(textAlign = TextAlign.Center),
+                textStyle = TextStyle.Default.copy(
+                    textAlign = TextAlign.Center,
+                    color = Color.White,
+                    fontWeight = FontWeight.Medium
+                ),
                 modifier =
                     Modifier.offset(
                         x = x2.dp,
@@ -309,8 +329,6 @@ fun ElementsView(
                     value = elements[i].name.value,
                     onValueChange = {
                         element.name.value = it
-
-                        calcInstructions(elements, contentElement)
                     },
                     textStyle = TextStyle.Default.copy(
                         textAlign = TextAlign.Center,
@@ -344,10 +362,6 @@ fun ElementsView(
                 value = elements[i].action.value,
                 onValueChange = {
                     element.action.value = it
-
-                    if (element.isAbstract) {
-                        calcInstructions(elements, contentElement)
-                    }
                 },
                 textStyle = TextStyle.Default.copy(textAlign = TextAlign.Center),
                 modifier =
@@ -426,11 +440,61 @@ fun ElementsView(
                     content = { Text("Delete") },
                     onClick = {
                         elements.removeAt(elementWithMenuId!!)
-                        calcInstructions(elements, contentElement)
+                        keyboardRequester.requestFocus()
                         elementWithMenuId = null
                     }
                 )
             }
+        }
+
+        Row(
+            Modifier.align(Alignment.BottomEnd),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("Step Delay: ")
+
+            BasicTextField(
+                value = stepDelayMsValue,
+                onValueChange = {
+                    stepDelayMsValue = it
+                },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                modifier = Modifier.width(80.dp)
+                    .padding(horizontal = 8.dp)
+                    .background(Color.LightGray)
+                    .padding(6.dp)
+            )
+
+            if (isPaused) {
+                Button(onClick = {
+                    isNextStepAllowed = true
+
+
+                }, Modifier.padding(horizontal = 21.dp)) {
+                    Text("Next Step >")
+                }
+            }
+
+            IconToggleButton(
+                isPaused,
+                onCheckedChange = {
+                    isPaused = it
+                },
+                content = {
+                    if (isPaused)
+                        Icon(
+                            Icons.Default.PlayArrow,
+                            contentDescription = "play"
+                        )
+                    else
+                        Icon(
+                            Icons.Default.Lock,
+                            "pause",
+                            tint = Color.LightGray
+                        )
+                }
+            )
         }
     }
 }
@@ -471,13 +535,22 @@ fun Modifier.dashedBorder(
 ) = dashedBorder(brush = SolidColor(color), shape, strokeWidth, dashLength, gapLength, cap)
 
 val mathEvaluator = Evaluator()
-fun calcInstructions(elements: SnapshotStateList<Element>, element: Element) {
+fun calcInstructions(elements: SnapshotStateList<Element>, element: Element): Boolean {
+    if (!element.isAbstract) {
+        return false
+    }
+
+    var workDone = false
     element.elements.sortedBy { it.area.top }
         .forEach {
-            calcInstructions(elements, it)
+            workDone = calcInstructions(elements, it)
+            if (workDone) {
+                return true
+            }
         }
 
     var action = element.action.value
+    println("action11: $action")
 
     var index = action.indexOf(":")
     var endIndex = action.indexOf(" ", index)
@@ -493,34 +566,127 @@ fun calcInstructions(elements: SnapshotStateList<Element>, element: Element) {
         endIndex = action.indexOf(" ", index)
     }
 
+    elements.forEach { e ->
+        val name = e.name.value
+        if (!name.isEmpty()) {
+            println("action0: $action")
+            println("name0: $name")
+            index = action.indexOf(name)
+            endIndex = action.indexOf(" ", index)
+            while (index != -1 && endIndex != -1 && index != endIndex && endIndex - index == name.length) {
+                val a = action.substring(index, endIndex)
+                println("action a: $action")
+                println("name: $a")
+
+                val b = elements.firstOrNull { it.name.value == name }?.value?.value
+                println("action b: $action")
+                b?.let {
+                    action = action.replaceFirst(a, b)
+                }
+                index = action.indexOf(name, endIndex)
+                endIndex = action.indexOf(" ", index)
+            }
+        }
+    }
+
     element.value.value = action
 
     // 0x123242 => :color
     // Result => :name
 
-    val resetAction = "=>"
-    when {
-        // # i + 1 => i
-        action.contains(resetAction) -> {
-            val leftRight = action.split(resetAction)
-            var value = leftRight[0].trim()
+    val questionOp = "?"
+    var needToDo = true
+    if (action.contains(questionOp)) {
+        val condition = action.split(questionOp)[0]
+        action = action.split(questionOp)[1]
 
-            try {
-                value = mathEvaluator.evaluateDouble(leftRight[0].trim())
-                    .toString()
-                    .removeSuffix(".0")
-            } catch (e: Exception) {
-                e.printStackTrace()
+        val booleanOps = listOf(
+            " == ", " != ", " < ", " > ", " <= ", " >= "
+        )
+
+        val conditionOp = condition.firstContained(booleanOps)
+
+        val leftRight = condition.split(conditionOp)
+        when (conditionOp) {
+            " != " -> {
+                val l = leftRight[0].trim()
+                val r = leftRight[1].trim()
+
+                println("l = |$l|, r = |$r|")
+
+                needToDo = l != r
             }
-            val name = leftRight[1].trim()
 
-            val updated = mutableListOf<Int>()
-            elements.forEachIndexed { i, it ->
-                if (!name.isEmpty() && it.name.value == name) {
-                    updated.add(i)
-                    elements[i].value.value = value
+            " == " -> {
+                val l = leftRight[0].trim()
+                val r = leftRight[1].trim()
+
+                println("l = |$l|, r = |$r|")
+
+                needToDo = l == r
+            }
+
+            " > " -> {
+                val l = leftRight[0].trim()
+                val r = leftRight[1].trim()
+
+                if (l.isDigitsOnly('.', '-') && r.isDigitsOnly('.', '-')) {
+                    needToDo = l.toInt() > r.toInt()
+                } else {
+                    needToDo = l.length > r.length
+                }
+            }
+
+            " < " -> {
+//                    condition: 1 < [1]12945
+                println("<<<<<<<<<<<")
+                val l = leftRight[0].trim()
+                val r = leftRight[1].trim()
+
+                if (l.isDigitsOnly('.', '-') && r.isDigitsOnly('.', '-')) {
+                    println("a l = |$l|, r = |$r|")
+                    needToDo = l.toInt() < r.toInt()
+                } else {
+                    println("b l = |$l|, r = |$r|")
+                    needToDo = l.length < r.length
                 }
             }
         }
     }
+    if (needToDo) {
+        val resetOp = " => "
+        when {
+            // # i + 1 => i
+            action.contains(resetOp) -> {
+                val leftRight = action.split(resetOp)
+                var value = leftRight[0].trim()
+
+                try {
+                    value = mathEvaluator.evaluateDouble(leftRight[0].trim())
+                        .toString()
+                        .removeSuffix(".0")
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+                val name = leftRight[1].trim()
+
+                elements.forEachIndexed { i, it ->
+                    if (!name.isEmpty() && it.name.value == name) {
+                        elements[i].value.value = value
+                    }
+                }
+                return true
+            }
+        }
+    }
+
+    return false
+}
+
+private fun String.firstContained(items: List<String>): String {
+    items.forEach {
+        if (this.contains(it)) return it
+    }
+
+    return ""
 }
