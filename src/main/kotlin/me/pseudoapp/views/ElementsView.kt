@@ -12,18 +12,18 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.runtime.*
-import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.*
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.key.*
@@ -34,14 +34,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
-import com.github.murzagalin.evaluator.Evaluator
 import kotlinx.coroutines.delay
 import me.pseudoapp.*
+import me.pseudoapp.icons.pause
+import me.pseudoapp.icons.play
+import me.pseudoapp.icons.playPause
+import me.pseudoapp.other.dashedBorder
 import me.pseudoapp.other.dpToPx
-import me.pseudoapp.other.isDigitsOnly
 import me.pseudoapp.other.measureTextHeight
 import me.pseudoapp.other.measureTextWidth
 import kotlin.math.abs
@@ -380,31 +381,70 @@ fun ElementsView(
             val textHeight3 = measureTextHeight(element.value.value)
             val x3 = element.area.left + element.area.width / 2 - textWidth3.dpToPx() / 2f
             val y3 = element.area.top + 0.dp.dpToPx() + element.area.height - textHeight3.dpToPx() / 2f
-            BasicTextField(
-                value = elements[i].value.value,
-                onValueChange = {
-                    element.value.value = it
-                },
-                textStyle = TextStyle.Default.copy(
-                    textAlign = TextAlign.Center,
-                    color = Color.White,
-                    fontWeight = FontWeight.Medium
+            Row(Modifier
+                .offset(
+                    x = x3.dp,
+                    y = y3.dp
                 ),
-                modifier = Modifier
-                    .offset(
-                        x = x3.dp,
-                        y = y3.dp
-                    )
-                    .width(textWidth3)
-                    .border(
-                        1.dp,
-                        color = element.color,
-                        shape = CircleShape
-                    )
-                    .clip(CircleShape)
-                    .background(element.color.copy(alpha = 0.82f))
-                    .padding(vertical = 2.dp)
-            )
+                verticalAlignment = Alignment.CenterVertically) {
+                BasicTextField(
+                    value = elements[i].value.value,
+                    onValueChange = {
+                        element.value.value = it
+                    },
+                    textStyle = TextStyle.Default.copy(
+                        textAlign = TextAlign.Center,
+                        color = Color.White,
+                        fontWeight = FontWeight.Medium
+                    ),
+                    modifier = Modifier
+                        .width(textWidth3)
+                        .border(
+                            1.dp,
+                            color = element.color,
+                            shape = CircleShape
+                        )
+                        .clip(CircleShape)
+                        .background(element.color.copy(alpha = 0.82f))
+                        .padding(vertical = 2.dp)
+                )
+
+                if (element.inProgress.value) {
+                    if (!isPaused) {
+                        Icon(
+                            pause, "pause", Modifier
+                                .padding(4.dp)
+                                .clip(CircleShape)
+//                                .background(element.color.copy(alpha = 0.42f))
+                                .clickable {
+                                    isPaused = true
+                                }
+                        )
+
+                    } else {
+                        Icon(
+                            playPause, "playPause", Modifier
+                                .padding(4.dp)
+                                .clip(CircleShape)
+//                                .background(element.color.copy(alpha = 0.42f))
+                                .clickable {
+                                    isNextStepAllowed = true
+                                }
+                        )
+
+                        Icon(
+                            play, "play", Modifier
+                                .padding(4.dp)
+                                .clip(CircleShape)
+//                                .background(element.color.copy(alpha = 0.42f))
+                                .clickable {
+                                    isPaused = false
+                                    element.inProgress.value = false
+                                }
+                        )
+                    }
+                }
+            }
         }
 
         elements.forEachIndexed { i, element ->
@@ -497,216 +537,4 @@ fun ElementsView(
             )
         }
     }
-}
-
-fun Modifier.dashedBorder(
-    brush: Brush,
-    shape: Shape,
-    strokeWidth: Dp = 2.dp,
-    dashLength: Dp = 4.dp,
-    gapLength: Dp = 4.dp,
-    cap: StrokeCap = StrokeCap.Round
-) = this.drawWithContent {
-    val outline = shape.createOutline(size, layoutDirection, density = this)
-    val dashedStroke = Stroke(
-        cap = cap,
-        width = strokeWidth.toPx(),
-        pathEffect = PathEffect.dashPathEffect(
-            intervals = floatArrayOf(dashLength.toPx(), gapLength.toPx())
-        )
-    )
-
-    drawContent()
-
-    drawOutline(
-        outline = outline,
-        style = dashedStroke,
-        brush = brush
-    )
-}
-
-fun Modifier.dashedBorder(
-    color: Color,
-    shape: Shape,
-    strokeWidth: Dp = 2.dp,
-    dashLength: Dp = 4.dp,
-    gapLength: Dp = 4.dp,
-    cap: StrokeCap = StrokeCap.Round
-) = dashedBorder(brush = SolidColor(color), shape, strokeWidth, dashLength, gapLength, cap)
-
-val mathEvaluator = Evaluator()
-fun calcInstructions(elements: SnapshotStateList<Element>, element: Element): Boolean {
-    if (!element.isAbstract) {
-        return false
-    }
-
-    var workDone = false
-    element.elements.sortedBy { it.area.top }
-        .forEach {
-            workDone = calcInstructions(elements, it)
-            if (workDone) {
-                return true
-            }
-        }
-
-    var action = element.action.value
-
-    var index = action.indexOf(":")
-    var endIndex = action.indexOf(" ", index)
-    while (index != -1 && endIndex != -1 && index + 1 != endIndex) {
-        val a = action.substring(index + 1, endIndex)
-        val b = element.elements.firstOrNull { it.name.value == a }?.value?.value
-
-        b?.let {
-            action = action.replaceFirst(":$a", b)
-        }
-        index = action.indexOf(":", endIndex)
-        endIndex = action.indexOf(" ", index)
-    }
-
-    elements.forEach { e ->
-        val name = e.name.value
-        if (!name.isEmpty()) {
-            index = action.indexOf(name)
-            endIndex = action.indexOf(" ", index)
-            while (index != -1 && endIndex != -1 && index != endIndex && endIndex - index == name.length) {
-                val a = action.substring(index, endIndex)
-                val b = elements.firstOrNull { it.name.value == name }?.value?.value
-
-                b?.let {
-                    action = action.replaceFirst(a, b)
-                }
-                index = action.indexOf(name, endIndex)
-                endIndex = action.indexOf(" ", index)
-            }
-        }
-    }
-
-    element.value.value = action
-
-    // 0x123242 => :color
-    // Result => :name
-    // :size
-
-    val questionOp = " ? "
-    var needToDo = true
-    if (action.contains(questionOp)) {
-        val condition = action.split(questionOp)[0]
-        action = action.split(questionOp)[1]
-
-        val booleanOps = listOf(
-            " == ", " != ", " < ", " > ", " <= ", " >= "
-        )
-
-
-
-        val conditionOp = condition.firstContained(booleanOps)
-
-        val leftRight = condition.split(conditionOp)
-        when (conditionOp) {
-            " != " -> {
-                val l = leftRight[0].trim()
-                val r = leftRight[1].trim()
-
-                println("l = |$l|, r = |$r|")
-
-                needToDo = l != r
-            }
-
-            " == " -> {
-                val l = leftRight[0].trim()
-                val r = leftRight[1].trim()
-
-                println("l = |$l|, r = |$r|")
-
-                needToDo = l == r
-            }
-
-            " > " -> {
-                val l = leftRight[0].trim()
-                val r = leftRight[1].trim()
-
-                if (l.isDigitsOnly('.', '-') && r.isDigitsOnly('.', '-')) {
-                    needToDo = l.toDouble() > r.toDouble()
-                } else {
-                    needToDo = false
-                }
-            }
-
-            " >= " -> {
-                val l = leftRight[0].trim()
-                val r = leftRight[1].trim()
-
-                if (l.isDigitsOnly('.', '-') && r.isDigitsOnly('.', '-')) {
-                    needToDo = l.toDouble() >= r.toDouble()
-                } else {
-                    needToDo = false
-                }
-            }
-
-            " < " -> {
-//                    condition: 1 < [1]12945
-                val l = leftRight[0].trim()
-                val r = leftRight[1].trim()
-
-                if (l.isDigitsOnly('.', '-') && r.isDigitsOnly('.', '-')) {
-                    println("a l = |$l|, r = |$r|")
-                    needToDo = l.toDouble() < r.toDouble()
-                } else {
-                    println("b l = |$l|, r = |$r|")
-                    needToDo = false
-                }
-            }
-
-            " <= " -> {
-//                    condition: 1 < [1]12945
-                val l = leftRight[0].trim()
-                val r = leftRight[1].trim()
-
-                if (l.isDigitsOnly('.', '-') && r.isDigitsOnly('.', '-')) {
-                    println("a l = |$l|, r = |$r|")
-                    needToDo = l.toDouble() <= r.toDouble()
-                } else {
-                    println("b l = |$l|, r = |$r|")
-                    needToDo = false
-                }
-            }
-        }
-    }
-    if (needToDo) {
-        val resetOp = " => "
-        when {
-            // # i + 1 => i
-            action.contains(resetOp) -> {
-                val leftRight = action.split(resetOp)
-                var value = leftRight[0].trim()
-
-                try {
-                    value = mathEvaluator.evaluateDouble(leftRight[0].trim())
-                        .toString()
-                        .removeSuffix(".0")
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                }
-                val name = leftRight[1].trim()
-
-                elements.forEachIndexed { i, it ->
-                    if (!name.isEmpty() && it.name.value == name) {
-                        elements[i].value.value = value
-                    }
-                }
-                return true
-            }
-        }
-    }
-
-    return false
-}
-
-private fun String.firstContained(items: List<String>): String {
-    items.forEach {
-        if (this.contains(it)) return it
-    }
-
-    return ""
 }
