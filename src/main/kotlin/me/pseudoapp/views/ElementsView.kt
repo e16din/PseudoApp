@@ -38,7 +38,6 @@ import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 import me.pseudoapp.*
-import me.pseudoapp.icons.pause
 import me.pseudoapp.icons.play
 import me.pseudoapp.icons.playPause
 import me.pseudoapp.other.dashedBorder
@@ -53,7 +52,7 @@ import kotlin.math.min
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ElementsView(
-    keyboardRequester: FocusRequester,
+    hotkeysFocusRequester: FocusRequester,
     ctrlPressed: MutableState<Boolean>,
     shiftPressed: MutableState<Boolean>,
     selectedImage: ImageBitmap?,
@@ -70,27 +69,68 @@ fun ElementsView(
 
     val elements = contentElement.elements
 
-    var stepDelayMsValue by remember { mutableStateOf("200") }
-    var isPaused by remember { mutableStateOf(false) }
-    var isNextStepAllowed by remember { mutableStateOf(false) }
+    val stepDelayMsValue = remember { mutableStateOf("200") }
+    val isPaused = remember { mutableStateOf(false) }
+    val isNextStepAllowed = remember { mutableStateOf(false) }
 
+    var i by remember { mutableStateOf(0) }
 
     LaunchedEffect(Unit) {
         println("contentElement: ${contentElement.name.value}")
+        // Lifecycle
+        var i = startCycleIndex
         while (true) {
-            val delayMs = if (stepDelayMsValue.isEmpty()) 0 else stepDelayMsValue.toLong()
+            val delayMs = if (stepDelayMsValue.value.isEmpty()) 0 else stepDelayMsValue.value.toLong()
             delay(delayMs)
-            if (!isPaused || isNextStepAllowed) {
-                isNextStepAllowed = false
 
+            if (contentElement.elements.isEmpty() || i > contentElement.elements.size - 1) {
+                continue
+            }
+
+            if (!isPaused.value
+                || isNextStepAllowed.value
+            ) {
+                val e = contentElement.elements[i]
+
+                isNextStepAllowed.value = false
+
+                startCycleIndex = elements.indexOfLast { it.text.value.startsWith(repeatStartOp) }
+                if (startCycleIndex == -1) {
+                    startCycleIndex = 0
+                }
+                println("startIndex: $startCycleIndex")
+
+
+                endCycleIndex = max(0, elements.size -1)
+                for (i in startCycleIndex until elements.size) {
+                    val it = elements[i]
+                    if (it.text.value.contains(repeatEndOp)) {
+                        endCycleIndex = i // меняется ли здесь индекс?
+                        break
+                    }
+                }
+
+                println("endCycleIndex: $endCycleIndex")
                 try {
-                    calcInstructions(elements, contentElement)
+                    val currentIndex = elements.indexOf(e)
+                    println("currentIndex: $currentIndex")
+
+                    if (currentIndex >= startCycleIndex && currentIndex <= endCycleIndex) {
+                        calcInstructions(contentElement.elements, e)
+                    }
+
                 } catch (e: Exception) {
                     e.printStackTrace()
+                }
+
+                i += 1
+                if (i > contentElement.elements.size - 1) {
+                    i = startCycleIndex
                 }
             }
         }
     }
+
 
     LaunchedEffect(dragEnd) {
         if (!dragEnd) {
@@ -108,8 +148,8 @@ fun ElementsView(
 
         val newElement = Element(
             name = mutableStateOf(name),
-            action = mutableStateOf(""),
-            value = mutableStateOf(""),
+            text = mutableStateOf(""),
+            result = mutableStateOf(""),
             area = Rect(
                 Offset(
                     min(startPoint!!.x, endPoint!!.x),
@@ -124,7 +164,13 @@ fun ElementsView(
             isAbstract = isAbstract,
             isFilled = isFilled,
         )
-        elements.add(newElement)
+        val i = elements.indexOfFirst { it.area.top > newElement.area.top } - 1
+        if (i >= 0) {
+            elements.add(i, newElement)
+        } else {
+            elements.add(newElement)
+        }
+
 
         startPoint = null
         endPoint = null
@@ -152,7 +198,7 @@ fun ElementsView(
                 layoutRect = rootRect
             }
             .focusable()
-            .focusRequester(keyboardRequester)
+            .focusRequester(hotkeysFocusRequester)
             .onKeyEvent { keyEvent ->
                 ctrlPressed.value = keyEvent.isCtrlPressed
                         && keyEvent.type == KeyEventType.KeyDown
@@ -281,35 +327,65 @@ fun ElementsView(
                 )
             }
 
-            val textWidth2 = measureTextWidth(element.value.value) + 24.dp
-            val textHeight2 = measureTextHeight(element.value.value)
+            val textWidth2 = measureTextWidth(element.result.value) + 24.dp
+            val textHeight2 = measureTextHeight(element.result.value)
             val x2 = element.area.left + element.area.width / 2 - textWidth2.dpToPx() / 2f
             val y2 = element.area.top + 0.dp.dpToPx() + element.area.height / 2 - textHeight2.dpToPx() / 2f
-            BasicTextField(
-                value = elements[i].value.value,
-                onValueChange = {
-                    element.value.value = it
-                },
-                textStyle = TextStyle.Default.copy(
-                    textAlign = TextAlign.Center,
-                    color = Color.White,
-                    fontWeight = FontWeight.Medium
-                ),
-                modifier =
-                    Modifier.offset(
+            Row(
+                Modifier
+                    .offset(
                         x = x2.dp,
                         y = y2.dp
+                    ),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                BasicTextField(
+                    value = elements[i].result.value,
+                    onValueChange = {
+                        element.result.value = it
+                    },
+                    textStyle = TextStyle.Default.copy(
+                        textAlign = TextAlign.Center,
+                        color = Color.White,
+                        fontWeight = FontWeight.Medium
+                    ),
+                    modifier =
+                        Modifier.width(textWidth2)
+                            .border(
+                                1.dp,
+                                color = element.color,
+                                shape = CircleShape
+                            )
+                            .clip(CircleShape)
+                            .background(element.color.copy(alpha = 0.82f))
+                            .padding(vertical = 2.dp)
+                )
+
+
+                if (isPaused.value && element.inProgress.value) {
+                    Icon(
+                        playPause, "playPause", Modifier
+                            .padding(4.dp)
+                            .clip(CircleShape)
+//                                .background(element.color.copy(alpha = 0.42f))
+                            .clickable {
+                                isNextStepAllowed.value = true
+                                hotkeysFocusRequester.requestFocus()
+                            }
                     )
-                        .width(textWidth2)
-                        .border(
-                            1.dp,
-                            color = element.color,
-                            shape = CircleShape
-                        )
-                        .clip(CircleShape)
-                        .background(element.color.copy(alpha = 0.82f))
-                        .padding(vertical = 2.dp)
-            )
+
+                    Icon(
+                        play, "play", Modifier
+                            .padding(4.dp)
+                            .clip(CircleShape)
+//                                .background(element.color.copy(alpha = 0.42f))
+                            .clickable {
+                                isPaused.value = false
+                                hotkeysFocusRequester.requestFocus()
+                            }
+                    )
+                }
+            }
         }
 
         @Composable
@@ -355,14 +431,14 @@ fun ElementsView(
                 )
             }
 
-            val textWidth2 = measureTextWidth(element.action.value) + 24.dp
-            val textHeight2 = measureTextHeight(element.action.value)
+            val textWidth2 = measureTextWidth(element.text.value) + 24.dp
+            val textHeight2 = measureTextHeight(element.text.value)
             val x2 = element.area.left + element.area.width / 2 - textWidth2.dpToPx() / 2f
             val y2 = element.area.top + 0.dp.dpToPx() + element.area.height / 2 - textHeight2.dpToPx() / 2f
             BasicTextField(
-                value = elements[i].action.value,
+                value = elements[i].text.value,
                 onValueChange = {
-                    element.action.value = it
+                    element.text.value = it
                 },
                 textStyle = TextStyle.Default.copy(textAlign = TextAlign.Center),
                 modifier =
@@ -377,20 +453,22 @@ fun ElementsView(
                         )
             )
 
-            val textWidth3 = measureTextWidth(element.value.value) + 24.dp
-            val textHeight3 = measureTextHeight(element.value.value)
+            val textWidth3 = measureTextWidth(element.result.value) + 24.dp
+            val textHeight3 = measureTextHeight(element.result.value)
             val x3 = element.area.left + element.area.width / 2 - textWidth3.dpToPx() / 2f
             val y3 = element.area.top + 0.dp.dpToPx() + element.area.height - textHeight3.dpToPx() / 2f
-            Row(Modifier
-                .offset(
-                    x = x3.dp,
-                    y = y3.dp
-                ),
-                verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                Modifier
+                    .offset(
+                        x = x3.dp,
+                        y = y3.dp
+                    ),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 BasicTextField(
-                    value = elements[i].value.value,
+                    value = elements[i].result.value,
                     onValueChange = {
-                        element.value.value = it
+                        element.result.value = it
                     },
                     textStyle = TextStyle.Default.copy(
                         textAlign = TextAlign.Center,
@@ -409,17 +487,18 @@ fun ElementsView(
                         .padding(vertical = 2.dp)
                 )
 
-                if (element.inProgress.value) {
-                    if (!isPaused) {
-                        Icon(
-                            pause, "pause", Modifier
-                                .padding(4.dp)
-                                .clip(CircleShape)
-//                                .background(element.color.copy(alpha = 0.42f))
-                                .clickable {
-                                    isPaused = true
-                                }
-                        )
+                if (isPaused.value && element.inProgress.value) {
+                    if (!isPaused.value) {
+//                        Icon(
+//                            pause, "pause", Modifier
+//                                .padding(4.dp)
+//                                .clip(CircleShape)
+////                                .background(element.color.copy(alpha = 0.42f))
+//                                .clickable {
+//                                    isPaused = true
+//                                    hotkeysFocusRequester.requestFocus()
+//                                }
+//                        )
 
                     } else {
                         Icon(
@@ -428,7 +507,8 @@ fun ElementsView(
                                 .clip(CircleShape)
 //                                .background(element.color.copy(alpha = 0.42f))
                                 .clickable {
-                                    isNextStepAllowed = true
+                                    isNextStepAllowed.value = true
+                                    hotkeysFocusRequester.requestFocus()
                                 }
                         )
 
@@ -438,8 +518,8 @@ fun ElementsView(
                                 .clip(CircleShape)
 //                                .background(element.color.copy(alpha = 0.42f))
                                 .clickable {
-                                    isPaused = false
-                                    element.inProgress.value = false
+                                    isPaused.value = false
+                                    hotkeysFocusRequester.requestFocus()
                                 }
                         )
                     }
@@ -471,7 +551,7 @@ fun ElementsView(
                     content = { Text("Dive In") },
                     onClick = {
                         onDiveInClick(elements[elementWithMenuId!!])
-                        keyboardRequester.requestFocus()
+                        hotkeysFocusRequester.requestFocus()
                         elementWithMenuId = null
                     }
                 )
@@ -480,7 +560,7 @@ fun ElementsView(
                     content = { Text("Delete") },
                     onClick = {
                         elements.removeAt(elementWithMenuId!!)
-                        keyboardRequester.requestFocus()
+                        hotkeysFocusRequester.requestFocus()
                         elementWithMenuId = null
                     }
                 )
@@ -494,9 +574,9 @@ fun ElementsView(
             Text("Step Delay: ")
 
             BasicTextField(
-                value = stepDelayMsValue,
+                value = stepDelayMsValue.value,
                 onValueChange = {
-                    stepDelayMsValue = it
+                    stepDelayMsValue.value = it
                 },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
@@ -506,9 +586,9 @@ fun ElementsView(
                     .padding(6.dp)
             )
 
-            if (isPaused) {
+            if (isPaused.value) {
                 Button(onClick = {
-                    isNextStepAllowed = true
+                    isNextStepAllowed.value = true
 
 
                 }, Modifier.padding(horizontal = 21.dp)) {
@@ -517,12 +597,12 @@ fun ElementsView(
             }
 
             IconToggleButton(
-                isPaused,
+                isPaused.value,
                 onCheckedChange = {
-                    isPaused = it
+                    isPaused.value = it
                 },
                 content = {
-                    if (isPaused)
+                    if (isPaused.value)
                         Icon(
                             Icons.Default.PlayArrow,
                             contentDescription = "play"

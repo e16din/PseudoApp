@@ -69,8 +69,8 @@ fun MainScreen() {
             Element(
                 name = mutableStateOf("App"),
 //                condition = mutableStateOf(""),
-                action = mutableStateOf(""),
-                value = mutableStateOf(""),
+                text = mutableStateOf(""),
+                result = mutableStateOf(""),
                 area = Rect(
                     topLeft = Offset.Zero,
                     bottomRight = Offset.Zero
@@ -79,7 +79,7 @@ fun MainScreen() {
             )
         }
         var selectedElement by remember { mutableStateOf(rootElement) }
-        val diveElements = remember { mutableStateListOf<Element>(rootElement) }
+        val diveElements = remember { mutableStateListOf(rootElement) }
         Row {
             Column {
                 Row {

@@ -10,33 +10,55 @@ import kotlin.math.abs
 
 val mathEvaluator = Evaluator()
 var activeElement: Element? = null
-fun calcInstructions(elements: SnapshotStateList<Element>, element: Element): Boolean {
-    if (!element.isAbstract) {
-//        activeElement?.inProgress?.value = false
-        return false
-    }
+var startCycleIndex = 0
+var endCycleIndex = 0
+
+val repeatStartOp = "repeat {"
+val repeatEndOp = "}"
+
+fun calcInstructions(
+    elements: SnapshotStateList<Element>,
+    element: Element,
+): Boolean {
 
     activeElement?.inProgress?.value = false
     activeElement = element
     activeElement?.inProgress?.value = true
+    println("active: action: ${activeElement?.text?.value} | value: ${activeElement?.result?.value}")
+
+    if (!element.isAbstract) {
+        return false
+    }
 
     var workDone = false
+
     element.elements.sortedBy { it.area.top }
-        .forEach {
-            workDone = calcInstructions(elements, it)
+        .forEach { e ->
+
+// i + 1 => i = cycle
+// i < 12 ? ^ cycle
+
+            workDone = calcInstructions(e.elements, e)
+
             if (workDone) {
                 return true
             }
         }
 
-    var action = StringBuilder(element.action.value)
+
+    var action = StringBuilder(
+        element.text.value
+            .replace(repeatStartOp, "")
+            .replace(repeatEndOp, "")
+    )
 
     //  Step: подставляем значения соседних элементов
     var index = action.indexOf(":")
     var endIndex = action.indexOf(" ", index)
+
     while (index != -1 && endIndex != -1 && index + 1 != endIndex) {
         val a = action.substring(index + 1, endIndex)
-        val b = element.elements.firstOrNull { it.name.value == a }?.value?.value
+        val b = element.elements.firstOrNull { it.name.value == a }?.result?.value
 
         b?.let {
             action.replace(index, endIndex, b)
@@ -52,8 +74,8 @@ fun calcInstructions(elements: SnapshotStateList<Element>, element: Element): Bo
             index = action.indexOf(name)
             endIndex = action.indexOf(" ", index)
             while (index != -1 && endIndex != -1 && index != endIndex && endIndex - index == name.length) {
-                val a = action.substring(index, endIndex)
-                val b = elements.firstOrNull { it.name.value == name }?.value?.value
+                action.substring(index, endIndex)
+                val b = elements.firstOrNull { it.name.value == name }?.result?.value
 
                 b?.let {
                     action.replace(index, endIndex, b)
@@ -209,7 +231,7 @@ fun calcInstructions(elements: SnapshotStateList<Element>, element: Element): Bo
         endArrayOpIndex = action.indexOf("]", endArrayOpIndex + 1)
     }
 
-    element.value.value = action.toString()
+    element.result.value = action.toString()
 
     // 0x123242 => :color
     // Result => :name
@@ -225,7 +247,6 @@ fun calcInstructions(elements: SnapshotStateList<Element>, element: Element): Bo
             " == ", " != ", " < ", " > ", " <= ", " >= "
         )
 
-
         val conditionOp = condition.firstContained(booleanOps)
 
         val leftRight = condition.split(conditionOp)
@@ -234,7 +255,7 @@ fun calcInstructions(elements: SnapshotStateList<Element>, element: Element): Bo
                 val l = leftRight[0].trim()
                 val r = leftRight[1].trim()
 
-                println("l = |$l|, r = |$r|")
+                println("?: |$l| $conditionOp |$r|")
 
                 needToDo = l != r
             }
@@ -243,7 +264,7 @@ fun calcInstructions(elements: SnapshotStateList<Element>, element: Element): Bo
                 val l = leftRight[0].trim()
                 val r = leftRight[1].trim()
 
-                println("l = |$l|, r = |$r|")
+                println("?: |$l| $conditionOp |$r|")
 
                 needToDo = l == r
             }
@@ -251,6 +272,8 @@ fun calcInstructions(elements: SnapshotStateList<Element>, element: Element): Bo
             " > " -> {
                 val l = leftRight[0].trim()
                 val r = leftRight[1].trim()
+
+                println("?: |$l| $conditionOp |$r|")
 
                 if (l.isDigitsOnly('.', '-') && r.isDigitsOnly('.', '-')) {
                     needToDo = l.toDouble() > r.toDouble()
@@ -262,6 +285,8 @@ fun calcInstructions(elements: SnapshotStateList<Element>, element: Element): Bo
             " >= " -> {
                 val l = leftRight[0].trim()
                 val r = leftRight[1].trim()
+
+                println("?: |$l| $conditionOp |$r|")
 
                 if (l.isDigitsOnly('.', '-') && r.isDigitsOnly('.', '-')) {
                     needToDo = l.toDouble() >= r.toDouble()
@@ -275,11 +300,11 @@ fun calcInstructions(elements: SnapshotStateList<Element>, element: Element): Bo
                 val l = leftRight[0].trim()
                 val r = leftRight[1].trim()
 
+                println("?: |$l| $conditionOp |$r|")
+
                 if (l.isDigitsOnly('.', '-') && r.isDigitsOnly('.', '-')) {
-                    println("a l = |$l|, r = |$r|")
                     needToDo = l.toDouble() < r.toDouble()
                 } else {
-                    println("b l = |$l|, r = |$r|")
                     needToDo = false
                 }
             }
@@ -289,48 +314,58 @@ fun calcInstructions(elements: SnapshotStateList<Element>, element: Element): Bo
                 val l = leftRight[0].trim()
                 val r = leftRight[1].trim()
 
+                println("?: |$l| $conditionOp |$r|")
+
                 if (l.isDigitsOnly('.', '-') && r.isDigitsOnly('.', '-')) {
-                    println("a l = |$l|, r = |$r|")
                     needToDo = l.toDouble() <= r.toDouble()
                 } else {
-                    println("b l = |$l|, r = |$r|")
                     needToDo = false
                 }
             }
         }
     }
 
+
     if (needToDo) {
+        if (element.text.value == "}") {
+            endCycleIndex = elements.size - 1
+            startCycleIndex = 0
+        }
+
         val resetOp = " => "
 
         when {
+
             // # i + 1 => i
             action.contains(resetOp) -> {
                 val leftRight = action.split(resetOp)
                 var value = leftRight[0].trim()
 
-                try {
-                    value = mathEvaluator.evaluateDouble(leftRight[0].trim())
+                try { // if it is math operation then:
+                    value = mathEvaluator.evaluateDouble(value)
                         .toString()
                         .removeSuffix(".0")
                 } catch (e: Exception) {
                     e.printStackTrace()
                 }
+
                 val name = leftRight[1].trim()
 
-                elements.forEachIndexed { i, it ->
+                println("=>: name: $name | value: $value")
+
+                for ((i, it) in elements.withIndex()) {
                     if (!name.isEmpty() && it.name.value == name) {
-                        elements[i].value.value = value
+                        elements[i].result.value = value
+                        break
                     }
                 }
 
-                return true
+                return false
             }
         }
     }
 
-    activeElement?.inProgress?.value = false
-
     return false
 }
+
 

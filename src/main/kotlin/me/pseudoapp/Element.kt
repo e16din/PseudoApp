@@ -11,8 +11,8 @@ import androidx.compose.ui.graphics.Color
 data class Element(
     var name: MutableState<String>,
     var inProgress: MutableState<Boolean> = mutableStateOf(false),
-    var action: MutableState<String>,// ? :a + 2 = 10 + 2
-    var value: MutableState<String>,
+    var text: MutableState<String>,// ? :a + 2 = 10 + 2
+    var result: MutableState<String>,
     val area: Rect,
     val color: Color,
     val isAbstract: Boolean = true, // Circle\Rect
