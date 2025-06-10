@@ -10,16 +10,15 @@ import kotlin.math.abs
 
 val mathEvaluator = Evaluator()
 var activeElement: Element? = null
-var startCycleIndex = 0
-var endCycleIndex = 0
 
-val repeatStartOp = "repeat {"
-val repeatEndOp = "}"
+val resetOp = "=> "
+val againOp = "^ "
 
 fun calcInstructions(
     elements: SnapshotStateList<Element>,
+    starters: SnapshotStateList<Element?>,
     element: Element,
-): Boolean {
+) {
 
     activeElement?.inProgress?.value = false
     activeElement = element
@@ -27,32 +26,16 @@ fun calcInstructions(
     println("active: action: ${activeElement?.text?.value} | value: ${activeElement?.result?.value}")
 
     if (!element.isAbstract) {
-        return false
+        return
     }
 
-    var workDone = false
+    element.elements.forEach { e ->
+        calcInstructions(e.elements, starters, e)
+    }
 
-    element.elements.sortedBy { it.area.top }
-        .forEach { e ->
+    var action = StringBuilder(element.text.value)
 
-// i + 1 => i = cycle
-// i < 12 ? ^ cycle
-
-            workDone = calcInstructions(e.elements, e)
-
-            if (workDone) {
-                return true
-            }
-        }
-
-
-    var action = StringBuilder(
-        element.text.value
-            .replace(repeatStartOp, "")
-            .replace(repeatEndOp, "")
-    )
-
-    //  Step: подставляем значения соседних элементов
+    //  Step: подставляем значения внутренних элементов
     var index = action.indexOf(":")
     var endIndex = action.indexOf(" ", index)
 
@@ -67,7 +50,7 @@ fun calcInstructions(
         endIndex = action.indexOf(" ", index)
     }
 
-    //  Step: подставляем значения внутренних элементов
+    //  Step: подставляем значения соседних элементов
     elements.forEach { e ->
         val name = e.name.value
         if (!name.isEmpty()) {
@@ -325,47 +308,59 @@ fun calcInstructions(
         }
     }
 
+    println("need to do: $needToDo")
 
-    if (needToDo) {
-        if (element.text.value == "}") {
-            endCycleIndex = elements.size - 1
-            startCycleIndex = 0
+    // ^ cycleA
+    if (action.contains(againOp)) {
+        val leftRight = action.split(againOp)
+        val startName = leftRight[1].trim()
+
+        println("^: startName: $startName")
+        val starter = elements.lastOrNull { it.name.value == startName }
+
+        println("^: starter: ${starters.lastOrNull()?.name}")
+        starters.removeLastOrNull()
+        println("^: starter after pop: ${starters.lastOrNull()?.name}")
+        if (needToDo) {
+            if (startName.isNotBlank()) {
+                starters.add(starter)
+                println("^: starter after add: ${starters.lastOrNull()?.name}")
+            }
         }
 
-        val resetOp = " => "
+        return
+    }
 
-        when {
+    // i + 1 => i
+    if (needToDo) {
+        if (action.contains(resetOp)) {
+            val leftRight = action.split(resetOp)
+            var value = leftRight[0].trim()
 
-            // # i + 1 => i
-            action.contains(resetOp) -> {
-                val leftRight = action.split(resetOp)
-                var value = leftRight[0].trim()
-
-                try { // if it is math operation then:
-                    value = mathEvaluator.evaluateDouble(value)
-                        .toString()
-                        .removeSuffix(".0")
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                }
-
-                val name = leftRight[1].trim()
-
-                println("=>: name: $name | value: $value")
-
-                for ((i, it) in elements.withIndex()) {
-                    if (!name.isEmpty() && it.name.value == name) {
-                        elements[i].result.value = value
-                        break
-                    }
-                }
-
-                return false
+            try { // if it is math operation then:
+                value = mathEvaluator.evaluateDouble(value)
+                    .toString()
+                    .removeSuffix(".0")
+            } catch (e: Exception) {
+                e.printStackTrace()
             }
+
+            val name = leftRight[1].trim()
+
+            println("=>: name: $name | value: $value")
+
+            if (name.isNotBlank()) {
+                elements.firstOrNull { it.name.value == name }?.let {
+                    it.result.value = value
+                }
+                return
+            }
+
+            return
         }
     }
 
-    return false
+    return
 }
 
 

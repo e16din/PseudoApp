@@ -48,7 +48,6 @@ import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
 
-
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ElementsView(
@@ -73,64 +72,52 @@ fun ElementsView(
     val isPaused = remember { mutableStateOf(false) }
     val isNextStepAllowed = remember { mutableStateOf(false) }
 
-    var i by remember { mutableStateOf(0) }
+    val startCycleElements = mutableStateListOf<Element?>()
 
     LaunchedEffect(Unit) {
         println("contentElement: ${contentElement.name.value}")
         // Lifecycle
-        var i = startCycleIndex
+
+        var i = 0
+        var startIndex = 0
+
         while (true) {
             val delayMs = if (stepDelayMsValue.value.isEmpty()) 0 else stepDelayMsValue.value.toLong()
             delay(delayMs)
 
-            if (contentElement.elements.isEmpty() || i > contentElement.elements.size - 1) {
+            if (contentElement.elements.isEmpty()) {
                 continue
             }
 
             if (!isPaused.value
                 || isNextStepAllowed.value
             ) {
-                val e = contentElement.elements[i]
-
-                isNextStepAllowed.value = false
-
-                startCycleIndex = elements.indexOfLast { it.text.value.startsWith(repeatStartOp) }
-                if (startCycleIndex == -1) {
-                    startCycleIndex = 0
-                }
-                println("startIndex: $startCycleIndex")
-
-
-                endCycleIndex = max(0, elements.size -1)
-                for (i in startCycleIndex until elements.size) {
-                    val it = elements[i]
-                    if (it.text.value.contains(repeatEndOp)) {
-                        endCycleIndex = i // меняется ли здесь индекс?
-                        break
-                    }
-                }
-
-                println("endCycleIndex: $endCycleIndex")
                 try {
-                    val currentIndex = elements.indexOf(e)
-                    println("currentIndex: $currentIndex")
+                    val e = contentElement.elements[i]
 
-                    if (currentIndex >= startCycleIndex && currentIndex <= endCycleIndex) {
-                        calcInstructions(contentElement.elements, e)
+                    isNextStepAllowed.value = false
+
+                    println("startCycleElement: ${startCycleElements.lastOrNull()?.name?.value}")
+                    println("startIndex: $startIndex")
+
+                    if (i >= startIndex) {
+                        calcInstructions(elements, startCycleElements, e)
                     }
 
+                    i += 1
+                    startIndex = elements.indexOf(startCycleElements.lastOrNull())
+                    if (startIndex == -1) {
+                        startIndex = 0
+                    }
+                    if (i > contentElement.elements.size - 1 || i < startIndex) {
+                        i = startIndex
+                    }
                 } catch (e: Exception) {
                     e.printStackTrace()
-                }
-
-                i += 1
-                if (i > contentElement.elements.size - 1) {
-                    i = startCycleIndex
                 }
             }
         }
     }
-
 
     LaunchedEffect(dragEnd) {
         if (!dragEnd) {
@@ -164,13 +151,11 @@ fun ElementsView(
             isAbstract = isAbstract,
             isFilled = isFilled,
         )
-        val i = elements.indexOfFirst { it.area.top > newElement.area.top } - 1
-        if (i >= 0) {
-            elements.add(i, newElement)
-        } else {
-            elements.add(newElement)
-        }
-
+        elements.add(newElement)
+        val sorted = elements.sortedBy { it.area.top }
+        elements.clear()
+        elements.addAll(sorted)
+        println("tag1: ${elements.map { it.name.value }}")
 
         startPoint = null
         endPoint = null
