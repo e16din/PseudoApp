@@ -12,13 +12,14 @@ val mathEvaluator = Evaluator()
 var activeElement: Element? = null
 
 val resetOp = "=> "
+val doneOp = ":done"
 val againOp = "^ "
 
 fun calcInstructions(
     elements: SnapshotStateList<Element>,
     starters: SnapshotStateList<Element?>,
     element: Element,
-) {
+): Boolean { // program is done ? see: doneOp
 
     activeElement?.inProgress?.value = false
     activeElement = element
@@ -26,7 +27,7 @@ fun calcInstructions(
     println("active: action: ${activeElement?.text?.value} | value: ${activeElement?.result?.value}")
 
     if (!element.isAbstract) {
-        return
+        return false
     }
 
     element.elements.forEach { e ->
@@ -328,7 +329,7 @@ fun calcInstructions(
             }
         }
 
-        return
+        return false
     }
 
     // i + 1 => i
@@ -341,7 +342,7 @@ fun calcInstructions(
                 value = mathEvaluator.evaluateDouble(value)
                     .toString()
                     .removeSuffix(".0")
-            } catch (e: Exception) {
+            } catch (e: IllegalArgumentException) {
                 e.printStackTrace()
             }
 
@@ -353,14 +354,16 @@ fun calcInstructions(
                 elements.firstOrNull { it.name.value == name }?.let {
                     it.result.value = value
                 }
-                return
+                return false
             }
 
-            return
+            return false
+        } else if (action.contains(doneOp)) {
+            return true
         }
     }
 
-    return
+    return false
 }
 
 

@@ -32,7 +32,6 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
@@ -70,18 +69,23 @@ fun ElementsView(
 
     val stepDelayMsValue = remember { mutableStateOf("200") }
     val isPaused = remember { mutableStateOf(false) }
+    var programInProgress by remember { mutableStateOf(true) }
     val isNextStepAllowed = remember { mutableStateOf(false) }
 
     val startCycleElements = mutableStateListOf<Element?>()
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(programInProgress) {
+        if (programInProgress == false) {
+            return@LaunchedEffect
+        }
+
         println("contentElement: ${contentElement.name.value}")
         // Lifecycle
 
         var i = 0
         var startIndex = 0
 
-        while (true) {
+        while (programInProgress) {
             val delayMs = if (stepDelayMsValue.value.isEmpty()) 0 else stepDelayMsValue.value.toLong()
             delay(delayMs)
 
@@ -92,26 +96,40 @@ fun ElementsView(
             if (!isPaused.value
                 || isNextStepAllowed.value
             ) {
+                fun findStartIndex(): Int {
+                    startIndex = elements.indexOf(startCycleElements.lastOrNull())
+                    if (startIndex == -1) {
+                        startIndex = 0
+                    }
+                    return startIndex
+                }
+
                 try {
                     val e = contentElement.elements[i]
 
                     isNextStepAllowed.value = false
 
+                    startIndex = findStartIndex()
                     println("startCycleElement: ${startCycleElements.lastOrNull()?.name?.value}")
-                    println("startIndex: $startIndex")
+                    println("startIndex a: $startIndex")
 
                     if (i >= startIndex) {
-                        calcInstructions(elements, startCycleElements, e)
+                        val isProgramDone = calcInstructions(elements, startCycleElements, e)
+                        programInProgress = !isProgramDone
+                        if (isProgramDone) {
+                            isPaused.value = true
+                        }
                     }
 
                     i += 1
-                    startIndex = elements.indexOf(startCycleElements.lastOrNull())
-                    if (startIndex == -1) {
-                        startIndex = 0
-                    }
+
+                    startIndex = findStartIndex()
+                    println("startIndex b: $startIndex")
+
                     if (i > contentElement.elements.size - 1 || i < startIndex) {
                         i = startIndex
                     }
+
                 } catch (e: Exception) {
                     e.printStackTrace()
                 }
@@ -166,7 +184,41 @@ fun ElementsView(
     }
 
     var rootRect by remember { mutableStateOf(Rect(Offset.Zero, Offset.Zero)) }
-    val textMeasurer = rememberTextMeasurer()
+//    val textMeasurer = rememberTextMeasurer()
+
+    fun onPlayClick() {
+        isPaused.value = false
+        programInProgress = true
+        hotkeysFocusRequester.requestFocus()
+    }
+
+    @Composable
+    fun PlayPauseButtons(element: Element) {
+        if (isPaused.value && element.inProgress.value) {
+            if (programInProgress) {
+                Icon(
+                    playPause, "playPause", Modifier
+                        .padding(4.dp)
+                        .clip(CircleShape)
+                        //                                .background(element.color.copy(alpha = 0.42f))
+                        .clickable {
+                            isNextStepAllowed.value = true
+                            hotkeysFocusRequester.requestFocus()
+                        }
+                )
+            }
+
+            Icon(
+                play, "play", Modifier
+                    .padding(4.dp)
+                    .clip(CircleShape)
+                    //                                .background(element.color.copy(alpha = 0.42f))
+                    .clickable {
+                        onPlayClick()
+                    }
+            )
+        }
+    }
 
     Box(
         modifier = modifier
@@ -347,29 +399,7 @@ fun ElementsView(
                 )
 
 
-                if (isPaused.value && element.inProgress.value) {
-                    Icon(
-                        playPause, "playPause", Modifier
-                            .padding(4.dp)
-                            .clip(CircleShape)
-//                                .background(element.color.copy(alpha = 0.42f))
-                            .clickable {
-                                isNextStepAllowed.value = true
-                                hotkeysFocusRequester.requestFocus()
-                            }
-                    )
-
-                    Icon(
-                        play, "play", Modifier
-                            .padding(4.dp)
-                            .clip(CircleShape)
-//                                .background(element.color.copy(alpha = 0.42f))
-                            .clickable {
-                                isPaused.value = false
-                                hotkeysFocusRequester.requestFocus()
-                            }
-                    )
-                }
+                PlayPauseButtons(element)
             }
         }
 
@@ -472,43 +502,7 @@ fun ElementsView(
                         .padding(vertical = 2.dp)
                 )
 
-                if (isPaused.value && element.inProgress.value) {
-                    if (!isPaused.value) {
-//                        Icon(
-//                            pause, "pause", Modifier
-//                                .padding(4.dp)
-//                                .clip(CircleShape)
-////                                .background(element.color.copy(alpha = 0.42f))
-//                                .clickable {
-//                                    isPaused = true
-//                                    hotkeysFocusRequester.requestFocus()
-//                                }
-//                        )
-
-                    } else {
-                        Icon(
-                            playPause, "playPause", Modifier
-                                .padding(4.dp)
-                                .clip(CircleShape)
-//                                .background(element.color.copy(alpha = 0.42f))
-                                .clickable {
-                                    isNextStepAllowed.value = true
-                                    hotkeysFocusRequester.requestFocus()
-                                }
-                        )
-
-                        Icon(
-                            play, "play", Modifier
-                                .padding(4.dp)
-                                .clip(CircleShape)
-//                                .background(element.color.copy(alpha = 0.42f))
-                                .clickable {
-                                    isPaused.value = false
-                                    hotkeysFocusRequester.requestFocus()
-                                }
-                        )
-                    }
-                }
+                PlayPauseButtons(element)
             }
         }
 
@@ -571,10 +565,9 @@ fun ElementsView(
                     .padding(6.dp)
             )
 
-            if (isPaused.value) {
+            if (programInProgress && isPaused.value) {
                 Button(onClick = {
                     isNextStepAllowed.value = true
-
 
                 }, Modifier.padding(horizontal = 21.dp)) {
                     Text("Next Step >")
@@ -603,3 +596,4 @@ fun ElementsView(
         }
     }
 }
+
