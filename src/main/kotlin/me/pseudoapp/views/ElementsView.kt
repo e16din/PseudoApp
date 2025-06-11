@@ -47,6 +47,16 @@ import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
 
+
+enum class CalcState {
+    InProgress,
+    Paused,
+    Done
+}
+
+var i = 0
+var startIndex = 0
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ElementsView(
@@ -68,24 +78,25 @@ fun ElementsView(
     val elements = contentElement.elements
 
     val stepDelayMsValue = remember { mutableStateOf("200") }
-    val isPaused = remember { mutableStateOf(false) }
-    var programInProgress by remember { mutableStateOf(true) }
+    var calcState by remember { mutableStateOf(CalcState.InProgress) }
     val isNextStepAllowed = remember { mutableStateOf(false) }
 
     val startCycleElements = mutableStateListOf<Element?>()
 
-    LaunchedEffect(programInProgress) {
-        if (programInProgress == false) {
+    LaunchedEffect(calcState, isNextStepAllowed) {
+        println("lifecycle:")
+        if (calcState == CalcState.Done) {
             return@LaunchedEffect
         }
 
+        println("calcState: $calcState")
+        println("isNextStepAllowed: ${isNextStepAllowed.value}")
         println("contentElement: ${contentElement.name.value}")
         // Lifecycle
 
-        var i = 0
-        var startIndex = 0
 
-        while (programInProgress) {
+
+        while (calcState != CalcState.Done) {
             val delayMs = if (stepDelayMsValue.value.isEmpty()) 0 else stepDelayMsValue.value.toLong()
             delay(delayMs)
 
@@ -93,9 +104,15 @@ fun ElementsView(
                 continue
             }
 
-            if (!isPaused.value
+            if (calcState != CalcState.Paused
                 || isNextStepAllowed.value
             ) {
+                if (isNextStepAllowed.value) {
+                    calcState = CalcState.Paused
+                    isNextStepAllowed.value = false
+                }
+
+                println("s3")
                 fun findStartIndex(): Int {
                     startIndex = elements.indexOf(startCycleElements.lastOrNull())
                     if (startIndex == -1) {
@@ -104,35 +121,36 @@ fun ElementsView(
                     return startIndex
                 }
 
+                if (i > contentElement.elements.size - 1 || i < startIndex) {
+                    i = startIndex
+                }
+                println("i c: $i")
+
                 try {
                     val e = contentElement.elements[i]
-
-                    isNextStepAllowed.value = false
 
                     startIndex = findStartIndex()
                     println("startCycleElement: ${startCycleElements.lastOrNull()?.name?.value}")
                     println("startIndex a: $startIndex")
 
+                    println("i a: $i")
+
                     if (i >= startIndex) {
-                        val isProgramDone = calcInstructions(elements, startCycleElements, e)
-                        programInProgress = !isProgramDone
-                        if (isProgramDone) {
-                            isPaused.value = true
+                        val result = calcInstructions(elements, startCycleElements, e)
+                        if (result == CalcState.Paused || result == CalcState.Done) {
+                            calcState = result
                         }
-                    }
-
-                    i += 1
-
-                    startIndex = findStartIndex()
-                    println("startIndex b: $startIndex")
-
-                    if (i > contentElement.elements.size - 1 || i < startIndex) {
-                        i = startIndex
                     }
 
                 } catch (e: Exception) {
                     e.printStackTrace()
                 }
+
+                i += 1
+
+                startIndex = findStartIndex()
+                println("startIndex b: $startIndex")
+                println("i b: $i")
             }
         }
     }
@@ -187,27 +205,26 @@ fun ElementsView(
 //    val textMeasurer = rememberTextMeasurer()
 
     fun onPlayClick() {
-        isPaused.value = false
-        programInProgress = true
+        calcState = CalcState.InProgress
         hotkeysFocusRequester.requestFocus()
     }
 
     @Composable
-    fun PlayPauseButtons(element: Element) {
-        if (isPaused.value && element.inProgress.value) {
-            if (programInProgress) {
-                Icon(
-                    playPause, "playPause", Modifier
-                        .padding(4.dp)
-                        .clip(CircleShape)
-                        //                                .background(element.color.copy(alpha = 0.42f))
-                        .clickable {
-                            isNextStepAllowed.value = true
-                            hotkeysFocusRequester.requestFocus()
-                        }
-                )
-            }
+    fun PlayPauseButtons() {
+        if (calcState == CalcState.Paused) {
+            Icon(
+                playPause, "playPause", Modifier
+                    .padding(4.dp)
+                    .clip(CircleShape)
+                    //                                .background(element.color.copy(alpha = 0.42f))
+                    .clickable {
+                        isNextStepAllowed.value = true
+                        hotkeysFocusRequester.requestFocus()
+                    }
+            )
+        }
 
+        if (calcState == CalcState.Paused || calcState == CalcState.Done) {
             Icon(
                 play, "play", Modifier
                     .padding(4.dp)
@@ -218,6 +235,7 @@ fun ElementsView(
                     }
             )
         }
+
     }
 
     Box(
@@ -399,7 +417,9 @@ fun ElementsView(
                 )
 
 
-                PlayPauseButtons(element)
+                if (element.inProgress.value) {
+                    PlayPauseButtons()
+                }
             }
         }
 
@@ -502,7 +522,9 @@ fun ElementsView(
                         .padding(vertical = 2.dp)
                 )
 
-                PlayPauseButtons(element)
+                if (element.inProgress.value) {
+                    PlayPauseButtons()
+                }
             }
         }
 
@@ -565,7 +587,7 @@ fun ElementsView(
                     .padding(6.dp)
             )
 
-            if (programInProgress && isPaused.value) {
+            if (calcState == CalcState.Paused) {
                 Button(onClick = {
                     isNextStepAllowed.value = true
 
@@ -575,12 +597,12 @@ fun ElementsView(
             }
 
             IconToggleButton(
-                isPaused.value,
+                calcState == CalcState.Paused || calcState == CalcState.Done,
                 onCheckedChange = {
-                    isPaused.value = it
+                    calcState = if (it) CalcState.Paused else CalcState.InProgress
                 },
                 content = {
-                    if (isPaused.value)
+                    if (calcState == CalcState.Paused || calcState == CalcState.Done)
                         Icon(
                             Icons.Default.PlayArrow,
                             contentDescription = "play"
