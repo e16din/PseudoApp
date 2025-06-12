@@ -36,6 +36,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import me.pseudoapp.*
 import me.pseudoapp.icons.play
 import me.pseudoapp.icons.playPause
@@ -85,72 +86,68 @@ fun ElementsView(
 
     LaunchedEffect(calcState, isNextStepAllowed) {
         println("lifecycle:")
-        if (calcState == CalcState.Done) {
-            return@LaunchedEffect
-        }
-
-        println("calcState: $calcState")
-        println("isNextStepAllowed: ${isNextStepAllowed.value}")
-        println("contentElement: ${contentElement.name.value}")
         // Lifecycle
+        calcScope.launch {
+            while (calcState != CalcState.Done) {
+                val delayMs = if (stepDelayMsValue.value.isEmpty()) 0 else stepDelayMsValue.value.toLong()
+                delay(delayMs)
 
-
-
-        while (calcState != CalcState.Done) {
-            val delayMs = if (stepDelayMsValue.value.isEmpty()) 0 else stepDelayMsValue.value.toLong()
-            delay(delayMs)
-
-            if (contentElement.elements.isEmpty()) {
-                continue
-            }
-
-            if (calcState != CalcState.Paused
-                || isNextStepAllowed.value
-            ) {
-                if (isNextStepAllowed.value) {
-                    calcState = CalcState.Paused
-                    isNextStepAllowed.value = false
+                if (contentElement.elements.isEmpty()) {
+                    continue
                 }
 
-                println("s3")
-                fun findStartIndex(): Int {
-                    startIndex = elements.indexOf(startCycleElements.lastOrNull())
-                    if (startIndex == -1) {
-                        startIndex = 0
+                if (calcState != CalcState.Paused
+                    || isNextStepAllowed.value
+                ) {
+                    println("calcState: $calcState")
+                    println("isNextStepAllowed: ${isNextStepAllowed.value}")
+                    println("contentElement: ${contentElement.name.value}")
+
+                    if (isNextStepAllowed.value) {
+                        calcState = CalcState.Paused
+                        isNextStepAllowed.value = false
                     }
-                    return startIndex
-                }
 
-                if (i > contentElement.elements.size - 1 || i < startIndex) {
-                    i = startIndex
-                }
-                println("i c: $i")
+                    println("s3")
+                    fun findStartIndex(): Int {
+                        startIndex = elements.indexOf(startCycleElements.lastOrNull())
+                        if (startIndex == -1) {
+                            startIndex = 0
+                        }
+                        return startIndex
+                    }
 
-                try {
-                    val e = contentElement.elements[i]
+                    if (i > contentElement.elements.size - 1 || i < startIndex) {
+                        i = startIndex
+                    }
+                    println("i c: $i")
+
+                    try {
+                        val e = contentElement.elements[i]
+
+                        startIndex = findStartIndex()
+                        println("startCycleElement: ${startCycleElements.lastOrNull()?.name?.value}")
+                        println("startIndex a: $startIndex")
+
+                        println("i a: $i")
+
+                        if (i >= startIndex) {
+                            val result = calcInstructions(elements, startCycleElements, e)
+                            if (result == CalcState.Paused || result == CalcState.Done) {
+                                calcState = result
+                            }
+                        }
+
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+
+                    i += 1
 
                     startIndex = findStartIndex()
-                    println("startCycleElement: ${startCycleElements.lastOrNull()?.name?.value}")
-                    println("startIndex a: $startIndex")
-
-                    println("i a: $i")
-
-                    if (i >= startIndex) {
-                        val result = calcInstructions(elements, startCycleElements, e)
-                        if (result == CalcState.Paused || result == CalcState.Done) {
-                            calcState = result
-                        }
-                    }
-
-                } catch (e: Exception) {
-                    e.printStackTrace()
+                    println("startIndex b: $startIndex")
+                    println("i b: $i")
                 }
-
-                i += 1
-
-                startIndex = findStartIndex()
-                println("startIndex b: $startIndex")
-                println("i b: $i")
             }
         }
     }
