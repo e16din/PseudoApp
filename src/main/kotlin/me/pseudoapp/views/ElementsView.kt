@@ -60,13 +60,13 @@ var startIndex = 0
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ElementsView(
+    contentElement: Element,
     hotkeysFocusRequester: FocusRequester,
     ctrlPressed: MutableState<Boolean>,
     shiftPressed: MutableState<Boolean>,
     selectedImage: ImageBitmap?,
     onNewElement: (Element) -> Unit,
     onDiveInClick: (Element) -> Unit,
-    contentElement: Element,
     modifier: Modifier
 ) {
     var startPoint by remember { mutableStateOf<Offset?>(null) }

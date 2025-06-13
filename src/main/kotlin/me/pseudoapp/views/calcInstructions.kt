@@ -3,10 +3,6 @@ package me.pseudoapp.views
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import com.github.murzagalin.evaluator.Evaluator
-import kotlinx.coroutines.CoroutineExceptionHandler
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import me.pseudoapp.Element
 import me.pseudoapp.other.firstContained
 import me.pseudoapp.other.isDigitsOnly

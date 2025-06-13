@@ -2,14 +2,8 @@ package me.pseudoapp.views
 
 
 import androidx.compose.foundation.focusable
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material.Button
-import androidx.compose.material.ButtonDefaults
-import androidx.compose.material.MaterialTheme
-import androidx.compose.material.Text
+import androidx.compose.foundation.layout.*
+import androidx.compose.material.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -34,6 +28,8 @@ fun MainScreen() {
     val ctrlPressed = remember { mutableStateOf(false) }
     val shiftPressed = remember { mutableStateOf(false) }
     val newElement = remember { mutableStateOf<Element?>(null) }
+
+    val isCodeEditorMode = remember { mutableStateOf(false) }
 
 
     LaunchedEffect(Unit) {
@@ -80,6 +76,7 @@ fun MainScreen() {
                 color = Color.White
             )
         }
+
         var selectedElement by remember { mutableStateOf(rootElement) }
         val diveElements = remember { mutableStateListOf(rootElement) }
         Row {
@@ -113,38 +110,48 @@ fun MainScreen() {
                             Text(it.name.value)
                         }
                     }
+                    Spacer(Modifier.weight(1f))
+                    OutlinedButton(onClick = {
+                       // todo
+                    }, Modifier.padding(start = 8.dp, end = 16.dp)) {
+                        Text("Save")
+                    }
+                    OutlinedButton(onClick = {
+                        isCodeEditorMode.value = !isCodeEditorMode.value
+                    }, Modifier.padding(start = 8.dp, end = 16.dp)) {
+                        val text = if (isCodeEditorMode.value)
+                            "Elements Editor"
+                        else
+                            "Code Editor"
+                        Text(text)
+                    }
                 }
                 Box(
                     Modifier.weight(1f)
                         .padding(12.dp)
                 ) {
-                    ElementsView(
-                        keyboardRequester,
-                        ctrlPressed,
-                        shiftPressed,
-                        selectedImage,
-                        onNewElement = { element ->
-                            newElement.value = element
-                        },
-                        onDiveInClick = {
-                            selectedElement = it
-                            diveElements.add(selectedElement)
-                        },
-                        contentElement = selectedElement,
-                        modifier = Modifier
-                    )
+                    if (isCodeEditorMode.value) {
+                        CodeEditorView(selectedElement.elements)
+
+                    } else {
+                        ElementsView(
+                            contentElement = selectedElement,
+                            hotkeysFocusRequester = keyboardRequester,
+                            ctrlPressed = ctrlPressed,
+                            shiftPressed = shiftPressed,
+                            selectedImage = selectedImage,
+                            onNewElement = { element ->
+                                newElement.value = element
+                            },
+                            onDiveInClick = {
+                                selectedElement = it
+                                diveElements.add(selectedElement)
+                            },
+                            modifier = Modifier
+                        )
+                    }
                 }
             }
-
-//            Card(
-//                Modifier.weight(1f)
-//                    .padding(12.dp)
-//            ) {
-//                CodeEditorView(
-//                    elements,
-//                    newElement
-//                )
-//            }
         }
     }
 }
