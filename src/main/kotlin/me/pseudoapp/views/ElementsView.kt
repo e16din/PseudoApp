@@ -78,7 +78,7 @@ fun ElementsView(
 
     val elements = contentElement.elements
 
-    val stepDelayMsValue = remember { mutableStateOf("200") }
+    val stepDelayMsValue = remember { mutableStateOf(200L) }
     var calcState by remember { mutableStateOf(CalcState.InProgress) }
     val isNextStepAllowed = remember { mutableStateOf(false) }
 
@@ -89,8 +89,7 @@ fun ElementsView(
         // Lifecycle
         calcScope.launch {
             while (calcState != CalcState.Done) {
-                val delayMs = if (stepDelayMsValue.value.isEmpty()) 0 else stepDelayMsValue.value.toLong()
-                delay(delayMs)
+                delay(stepDelayMsValue.value)
 
                 if (contentElement.elements.isEmpty()) {
                     continue
@@ -132,7 +131,7 @@ fun ElementsView(
                         println("i a: $i")
 
                         if (i >= startIndex) {
-                            val result = calcInstructions(elements, startCycleElements, e)
+                            val result = calcInstructions(elements, startCycleElements, e, stepDelayMsValue)
                             if (result == CalcState.Paused || result == CalcState.Done) {
                                 calcState = result
                             }
@@ -572,9 +571,9 @@ fun ElementsView(
             Text("Step Delay: ")
 
             BasicTextField(
-                value = stepDelayMsValue.value,
+                value = stepDelayMsValue.value.toString(),
                 onValueChange = {
-                    stepDelayMsValue.value = it
+                    stepDelayMsValue.value = it.toLongOrNull() ?: 0L
                 },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),

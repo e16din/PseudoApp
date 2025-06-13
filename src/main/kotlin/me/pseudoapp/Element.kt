@@ -13,7 +13,7 @@ data class Element(
     var inProgress: MutableState<Boolean> = mutableStateOf(false),
     var text: MutableState<String>,// ? :a + 2 = 10 + 2
     var result: MutableState<String>,
-    val area: Rect,
+    var area: Rect,
     val color: Color,
     val isAbstract: Boolean = true, // Circle\Rect
     val isFilled: Boolean = true, // Real\Abstract
