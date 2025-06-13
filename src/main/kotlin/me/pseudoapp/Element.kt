@@ -13,9 +13,9 @@ data class Element(
     var inProgress: MutableState<Boolean> = mutableStateOf(false),
     var text: MutableState<String>,// ? :a + 2 = 10 + 2
     var result: MutableState<String>,
-    var area: Rect,
+    var area: MutableState<Rect>,
     val color: Color,
-    val isAbstract: Boolean = true, // Circle\Rect
+    val isAbstrAction: Boolean = true, // Circle\Rect
     val isFilled: Boolean = true, // Real\Abstract
 //    val createdMs: Long = System.currentTimeMillis(),
     val elements: SnapshotStateList<Element> = mutableStateListOf<Element>()

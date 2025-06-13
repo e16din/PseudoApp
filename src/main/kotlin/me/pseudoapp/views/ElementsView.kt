@@ -36,7 +36,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import me.pseudoapp.*
 import me.pseudoapp.icons.play
 import me.pseudoapp.icons.playPause
@@ -87,66 +86,64 @@ fun ElementsView(
     LaunchedEffect(calcState, isNextStepAllowed) {
         println("lifecycle:")
         // Lifecycle
-        calcScope.launch {
-            while (calcState != CalcState.Done) {
-                delay(stepDelayMsValue.value)
+        while (calcState != CalcState.Done) {
+            delay(stepDelayMsValue.value)
 
-                if (contentElement.elements.isEmpty()) {
-                    continue
+            if (contentElement.elements.isEmpty()) {
+                continue
+            }
+
+            if (calcState != CalcState.Paused
+                || isNextStepAllowed.value
+            ) {
+                println("calcState: $calcState")
+                println("isNextStepAllowed: ${isNextStepAllowed.value}")
+                println("contentElement: ${contentElement.name.value}")
+
+                if (isNextStepAllowed.value) {
+                    calcState = CalcState.Paused
+                    isNextStepAllowed.value = false
                 }
 
-                if (calcState != CalcState.Paused
-                    || isNextStepAllowed.value
-                ) {
-                    println("calcState: $calcState")
-                    println("isNextStepAllowed: ${isNextStepAllowed.value}")
-                    println("contentElement: ${contentElement.name.value}")
-
-                    if (isNextStepAllowed.value) {
-                        calcState = CalcState.Paused
-                        isNextStepAllowed.value = false
+                println("s3")
+                fun findStartIndex(): Int {
+                    startIndex = elements.indexOf(startCycleElements.lastOrNull())
+                    if (startIndex == -1) {
+                        startIndex = 0
                     }
+                    return startIndex
+                }
 
-                    println("s3")
-                    fun findStartIndex(): Int {
-                        startIndex = elements.indexOf(startCycleElements.lastOrNull())
-                        if (startIndex == -1) {
-                            startIndex = 0
-                        }
-                        return startIndex
-                    }
+                if (i > contentElement.elements.size - 1 || i < startIndex) {
+                    i = startIndex
+                }
+                println("i c: $i")
 
-                    if (i > contentElement.elements.size - 1 || i < startIndex) {
-                        i = startIndex
-                    }
-                    println("i c: $i")
-
-                    try {
-                        val e = contentElement.elements[i]
-
-                        startIndex = findStartIndex()
-                        println("startCycleElement: ${startCycleElements.lastOrNull()?.name?.value}")
-                        println("startIndex a: $startIndex")
-
-                        println("i a: $i")
-
-                        if (i >= startIndex) {
-                            val result = calcInstructions(elements, startCycleElements, e, stepDelayMsValue)
-                            if (result == CalcState.Paused || result == CalcState.Done) {
-                                calcState = result
-                            }
-                        }
-
-                    } catch (e: Exception) {
-                        e.printStackTrace()
-                    }
-
-                    i += 1
+                try {
+                    val e = contentElement.elements[i]
 
                     startIndex = findStartIndex()
-                    println("startIndex b: $startIndex")
-                    println("i b: $i")
+                    println("startCycleElement: ${startCycleElements.lastOrNull()?.name?.value}")
+                    println("startIndex a: $startIndex")
+
+                    println("i a: $i")
+
+                    if (i >= startIndex) {
+                        val result = calcInstructions(elements, startCycleElements, e, stepDelayMsValue)
+                        if (result == CalcState.Paused || result == CalcState.Done) {
+                            calcState = result
+                        }
+                    }
+
+                } catch (e: Exception) {
+                    e.printStackTrace()
                 }
+
+                i += 1
+
+                startIndex = findStartIndex()
+                println("startIndex b: $startIndex")
+                println("i b: $i")
             }
         }
     }
@@ -159,7 +156,10 @@ fun ElementsView(
         val isAbstract = ctrlPressed.value
         val isFilled = shiftPressed.value
 
-        var name = if (isAbstract) "" else currentColor.name
+        var name = if (isAbstract) "${Char(currentCharCode)}" else currentColor.name
+        if (isAbstract) {
+            currentCharCode += 1
+        }
 
         if (!isAbstract && elements.any { it.name.value == name }) {
             name += elements.size / RainbowColor.entries.size
@@ -169,22 +169,24 @@ fun ElementsView(
             name = mutableStateOf(name),
             text = mutableStateOf(""),
             result = mutableStateOf(""),
-            area = Rect(
-                Offset(
-                    min(startPoint!!.x, endPoint!!.x),
-                    min(startPoint!!.y, endPoint!!.y)
-                ),
-                Offset(
-                    max(startPoint!!.x, endPoint!!.x),
-                    max(startPoint!!.y, endPoint!!.y)
+            area = mutableStateOf(
+                Rect(
+                    Offset(
+                        min(startPoint!!.x, endPoint!!.x),
+                        min(startPoint!!.y, endPoint!!.y)
+                    ),
+                    Offset(
+                        max(startPoint!!.x, endPoint!!.x),
+                        max(startPoint!!.y, endPoint!!.y)
+                    )
                 )
             ),
             color = currentColor.color,
-            isAbstract = isAbstract,
+            isAbstrAction = isAbstract,
             isFilled = isFilled,
         )
         elements.add(newElement)
-        val sorted = elements.sortedBy { it.area.top }
+        val sorted = elements.sortedBy { it.area.value.top }
         elements.clear()
         elements.addAll(sorted)
         println("tag1: ${elements.map { it.name.value }}")
@@ -315,19 +317,19 @@ fun ElementsView(
             }
 
             elements.forEach { element ->
-                if (element.isAbstract) {
+                if (element.isAbstrAction) {
                     drawRoundRect(
                         color = element.color,
-                        topLeft = element.area.topLeft,
-                        size = element.area.size,
+                        topLeft = element.area.value.topLeft,
+                        size = element.area.value.size,
                         cornerRadius = CornerRadius(2f, 2f),
                         style = if (element.isFilled) Fill else Stroke(width = 2f)
                     )
                 } else {
                     drawCircle(
                         color = element.color,
-                        center = element.area.center,
-                        radius = element.area.size.width / 2,
+                        center = element.area.value.center,
+                        radius = element.area.value.size.width / 2,
                         style = if (element.isFilled) Fill else Stroke(width = 2f)
                     )
 
@@ -339,8 +341,8 @@ fun ElementsView(
         fun addRealElementView(element: Element, i: Int) {
             val textWidth = measureTextWidth(element.name.value) + 8.dp
             val textHeight = measureTextHeight(element.name.value)
-            val x = element.area.left + element.area.width / 2 - textWidth.dpToPx() / 2f
-            val y = element.area.top + 4.dp.dpToPx()
+            val x = element.area.value.left + element.area.value.width / 2 - textWidth.dpToPx() / 2f
+            val y = element.area.value.top + 4.dp.dpToPx()
 
             Row(
                 Modifier.offset(
@@ -380,8 +382,8 @@ fun ElementsView(
 
             val textWidth2 = measureTextWidth(element.result.value) + 24.dp
             val textHeight2 = measureTextHeight(element.result.value)
-            val x2 = element.area.left + element.area.width / 2 - textWidth2.dpToPx() / 2f
-            val y2 = element.area.top + 0.dp.dpToPx() + element.area.height / 2 - textHeight2.dpToPx() / 2f
+            val x2 = element.area.value.left + element.area.value.width / 2 - textWidth2.dpToPx() / 2f
+            val y2 = element.area.value.top + 0.dp.dpToPx() + element.area.value.height / 2 - textHeight2.dpToPx() / 2f
             Row(
                 Modifier
                     .offset(
@@ -423,8 +425,8 @@ fun ElementsView(
         fun addAbstractElementView(element: Element, i: Int) {
             val textWidth = measureTextWidth(element.name.value) + 8.dp
             val textHeight = measureTextHeight(element.name.value)
-            val x = element.area.left + element.area.width / 2 - textWidth.dpToPx() / 2f
-            val y = element.area.top + 4.dp.dpToPx()
+            val x = element.area.value.left + element.area.value.width / 2 - textWidth.dpToPx() / 2f
+            val y = element.area.value.top + 4.dp.dpToPx()
 
             Row(
                 Modifier.offset(
@@ -464,8 +466,8 @@ fun ElementsView(
 
             val textWidth2 = measureTextWidth(element.text.value) + 24.dp
             val textHeight2 = measureTextHeight(element.text.value)
-            val x2 = element.area.left + element.area.width / 2 - textWidth2.dpToPx() / 2f
-            val y2 = element.area.top + 0.dp.dpToPx() + element.area.height / 2 - textHeight2.dpToPx() / 2f
+            val x2 = element.area.value.left + element.area.value.width / 2 - textWidth2.dpToPx() / 2f
+            val y2 = element.area.value.top + 0.dp.dpToPx() + element.area.value.height / 2 - textHeight2.dpToPx() / 2f
             BasicTextField(
                 value = elements[i].text.value,
                 onValueChange = {
@@ -486,8 +488,8 @@ fun ElementsView(
 
             val textWidth3 = measureTextWidth(element.result.value) + 24.dp
             val textHeight3 = measureTextHeight(element.result.value)
-            val x3 = element.area.left + element.area.width / 2 - textWidth3.dpToPx() / 2f
-            val y3 = element.area.top + 0.dp.dpToPx() + element.area.height - textHeight3.dpToPx() / 2f
+            val x3 = element.area.value.left + element.area.value.width / 2 - textWidth3.dpToPx() / 2f
+            val y3 = element.area.value.top + 0.dp.dpToPx() + element.area.value.height - textHeight3.dpToPx() / 2f
             Row(
                 Modifier
                     .offset(
@@ -525,7 +527,7 @@ fun ElementsView(
         }
 
         elements.forEachIndexed { i, element ->
-            if (element.isAbstract) {
+            if (element.isAbstrAction) {
                 addAbstractElementView(element, i)
             } else {
                 addRealElementView(element, i)
@@ -539,8 +541,8 @@ fun ElementsView(
                 expanded = true,
                 onDismissRequest = { elementWithMenuId = null },
                 offset = DpOffset(
-                    x = e.area.left.dp,
-                    y = e.area.top.dp
+                    x = e.area.value.left.dp,
+                    y = e.area.value.top.dp
                 ),
                 modifier = Modifier
             ) {

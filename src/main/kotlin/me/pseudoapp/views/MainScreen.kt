@@ -71,9 +71,11 @@ fun MainScreen() {
 //                condition = mutableStateOf(""),
                 text = mutableStateOf(""),
                 result = mutableStateOf(""),
-                area = Rect(
-                    topLeft = Offset.Zero,
-                    bottomRight = Offset.Zero
+                area = mutableStateOf(
+                    Rect(
+                        topLeft = Offset.Zero,
+                        bottomRight = Offset.Zero
+                    )
                 ),
                 color = Color.White
             )

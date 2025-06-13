@@ -7,7 +7,6 @@ import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.withContext
 import me.pseudoapp.Element
 import me.pseudoapp.other.firstContained
 import me.pseudoapp.other.isDigitsOnly
@@ -25,6 +24,8 @@ val doneOp = "=done"
 val pauseOp = "=pause"
 val stepDelayOp = "=stepDelay"
 
+val innerValueDelimiter = ":"
+
 val sizeOp = ":size"
 val nameOp = ":name"
 val colorOp = ":color"
@@ -37,37 +38,8 @@ val heightOp = ":height"
 
 val unknownResult = "?"
 
-// 0x123242 => :color
-// Result => :name
 
-//    a < b ? a + b => i
-//    a < b ? [i]abc => i
-//    a < b ? ^ i
-//    a < b ? :pause
-//    a < b ? :done
-
-// condition ? action (|any op| name)
-// condition ? action (|any op| name)
-// [check] ? [calc data] = [update element]
-//  a < b ? a + b => i
-//  a < b ? =^ i
-//  a < b ? =pause
-//  a < b ? =done
-
-
-// [check] ? [calc data] = ^ [update element]
-// [check] ? = ^ [update element]
-
-
-val calcContext = Dispatchers.Default + SupervisorJob() + CoroutineExceptionHandler { c, t ->
-    println("error:")
-    t.printStackTrace()
-}
-val calcScope = CoroutineScope(calcContext)
-
-
-@OptIn(ExperimentalStdlibApi::class)
-suspend fun calcInstructions(
+fun calcInstructions(
     elements: SnapshotStateList<Element>,
     starters: SnapshotStateList<Element?>,
     element: Element,
@@ -79,7 +51,7 @@ suspend fun calcInstructions(
     activeElement?.inProgress?.value = true
     println("active: action: ${activeElement?.text?.value} | value: ${activeElement?.result?.value}")
 
-    if (!element.isAbstract) {
+    if (!element.isAbstrAction) {
         return CalcState.InProgress
     }
 
@@ -89,18 +61,20 @@ suspend fun calcInstructions(
 
     fun doInsertAndCalcValues(a: CharSequence): CharSequence {
         var action = StringBuilder(a)
+        val opIndex = action.indexOf(" =")
+
         //  Step: подставляем значения внутренних элементов
-        var index = action.indexOf(":")
+        var index = action.indexOf(innerValueDelimiter)
         var endIndex = action.indexOf(" ", index)
 
-        while (index != -1 && endIndex != -1 && index + 1 != endIndex) {
+        while (index < opIndex && index != -1 && endIndex != -1 && index + 1 != endIndex) {
             val a = action.substring(index + 1, endIndex)
             val b = element.elements.firstOrNull { it.name.value == a }?.result?.value
 
             b?.let {
                 action.replace(index, endIndex, b)
             }
-            index = action.indexOf(":", endIndex)
+            index = action.indexOf(innerValueDelimiter, endIndex)
             endIndex = action.indexOf(" ", index)
         }
 
@@ -111,7 +85,7 @@ suspend fun calcInstructions(
                 index = action.indexOf(name)
                 endIndex = action.indexOf(" ", index)
                 val b = elements.firstOrNull { it.name.value == name }?.result?.value
-                while (index != -1 && endIndex != -1 && index != endIndex && endIndex - index == name.length) {
+                while (index < opIndex && index != -1 && endIndex != -1 && index != endIndex && endIndex - index == name.length) {
                     val replaced = action.substring(index, endIndex)
                     println("replaced: $replaced")
 
@@ -128,7 +102,7 @@ suspend fun calcInstructions(
         // слева направо
         var startArrayOpIndex = action.indexOf("[")
         var endArrayOpIndex = action.indexOf("]")
-        while (startArrayOpIndex != -1 && endArrayOpIndex != -1) {
+        while (startArrayOpIndex < opIndex && startArrayOpIndex != -1 && endArrayOpIndex != -1) {
             val startArrayIndex = endArrayOpIndex + 1
             var endArrayIndex = action.positionOf(
                 {
@@ -254,7 +228,7 @@ suspend fun calcInstructions(
             endArrayOpIndex = action.indexOf("]", endArrayOpIndex + 1)
         }
 
-        fun replaceOp(op: String, insertion:(value:String)-> String) {
+        fun replaceOp(op: String, insertion: (value: String) -> String) {
             var sizeEndIndex = action.indexOf(op)
             var sizeStartIndex = action.positionOf(" ", sizeEndIndex, fromEndToStart = true) + 1
 
@@ -271,7 +245,7 @@ suspend fun calcInstructions(
 
         // Step: Подставляем размеры массивов/строк
         replaceOp(sizeOp) { value ->
-           return@replaceOp value.length.toString()
+            return@replaceOp value.length.toString()
         }
 
         // Step: Подставляем цвета элементов
@@ -283,25 +257,25 @@ suspend fun calcInstructions(
         // Step: Подставляем ширину элементов
         replaceOp(widthOp) { value ->
             val e = elements.firstOrNull { it.name.value == value }
-            return@replaceOp e?.let { e.area.width.toString() } ?: unknownResult
+            return@replaceOp e?.let { e.area.value.width.toString() } ?: unknownResult
         }
 
         // Step: Подставляем высоту элементов
         replaceOp(heightOp) { value ->
             val e = elements.firstOrNull { it.name.value == value }
-            return@replaceOp e?.let { e.area.height.toString() } ?: unknownResult
+            return@replaceOp e?.let { e.area.value.height.toString() } ?: unknownResult
         }
 
         // Step: Подставляем x элементов
         replaceOp(xOp) { value ->
             val e = elements.firstOrNull { it.name.value == value }
-            return@replaceOp e?.let { e.area.left.toString() } ?: unknownResult
+            return@replaceOp e?.let { e.area.value.left.toString() } ?: unknownResult
         }
 
         // Step: Подставляем y элементов
         replaceOp(yOp) { value ->
             val e = elements.firstOrNull { it.name.value == value }
-            return@replaceOp e?.let { e.area.top.toString() } ?: unknownResult
+            return@replaceOp e?.let { e.area.value.top.toString() } ?: unknownResult
         }
 
         // Step: Подставляем stepDelay элементов
@@ -415,7 +389,7 @@ suspend fun calcInstructions(
 
     println("need to do: $needToDo")
 
-    suspend fun doUpdateOps(action: CharSequence): CalcState {
+    fun doUpdateOps(action: CharSequence): CalcState {
         var result = CalcState.InProgress
         // ^ cycleA
         if (action.contains(againOp)) {
@@ -440,17 +414,23 @@ suspend fun calcInstructions(
 
         // i + 1 => i
         if (needToDo) {
+            var index1 = action.indexOf(setOp)
+            var index2 = action.indexOf(setOp, index1 + 1)
+            var res = StringBuilder(action)
+            val opStub = "%=%>"
+            while (index1 != -1 && index2 != -1) {
+                res.replace(index1, index1 + setOp.length, opStub)
+                index1 = action.indexOf(setOp, index2 + 1)
+                index2 = action.indexOf(setOp, index1 + 1)
+            }
+            val action = res.toString()
             when {
                 action.contains(setOp) -> {
                     val leftRight = action.split(setOp)
-                    var value = leftRight[0].trim()
+                    var value = leftRight[0].trim().replace(opStub, setOp)
 
-                    withContext(Dispatchers.Default) {// to go next after any exception
-                        try { // if it is math operation then:
-                            value = mathEvaluator.evaluateDouble(value).toString().removeSuffix(".0")
-                        } catch (e: IllegalArgumentException) {
-                            e.printStackTrace()
-                        }
+                    if (value.indexOfAny(charArrayOf('+', '-', '*', '/', '%')) != -1 && value.isDigitsOnly(' ', '.', '(', ')', '+', '-', '*', '/', '%')) {
+                        value = mathEvaluator.evaluateDouble(value).toString().removeSuffix(".0")
                     }
 
                     val name = leftRight[1].trim()
@@ -459,26 +439,37 @@ suspend fun calcInstructions(
 
                     if (name.isNotBlank()) {
                         when {
-                            name.contains(":") -> {
-                                val nameValue = name.split(":")
+                            name.contains(innerValueDelimiter) -> {
+                                val nameValue = name.split(innerValueDelimiter)
                                 println("nameValue: ${nameValue}")
                                 elements.firstOrNull { it.name.value == nameValue[0] }?.let {
-                                    when {
-                                        nameValue[1] == nameOp -> {
-                                            it.name.value = value
-                                        }
-                                        nameValue[1] == xOp -> {
-                                            it.area = it.area.copy(left = value.toFloat())
-                                        }
-                                        nameValue[1] == yOp -> {
-                                            it.area = it.area.copy(top = value.toFloat())
+                                    val name = nameValue[1]
+                                    if (name.isNotBlank()) {
+                                        val op = innerValueDelimiter + name
+                                        when (op) {
+                                            nameOp -> {
+                                                it.name.value = value
+                                            }
+
+                                            xOp -> {
+                                                it.area.value = it.area.value.copy(left = value.toFloat())
+                                            }
+
+                                            yOp -> {
+                                                it.area.value = it.area.value.copy(top = value.toFloat())
+                                            }
                                         }
                                     }
                                 }
                             }
+
                             else -> {
                                 elements.firstOrNull { it.name.value == name }?.let {
-                                    it.result.value = value
+                                    if (it.isAbstrAction) {
+                                        it.text.value = value
+                                    } else {
+                                        it.result.value = value
+                                    }
                                 }
                             }
                         }
