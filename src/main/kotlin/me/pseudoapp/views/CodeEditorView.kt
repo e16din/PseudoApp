@@ -1,8 +1,12 @@
 package me.pseudoapp.views
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.CutCornerShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.Divider
 import androidx.compose.material.Text
@@ -31,8 +35,11 @@ fun CodeEditorView(
 ) {
 
     val instructionsRequester = remember { FocusRequester() }
-    var prevCodeValue by remember { mutableStateOf(TextFieldValue()) }
-    var codeValue by remember { mutableStateOf(TextFieldValue()) }
+
+    var prevAbstractionValues by remember { mutableStateOf(TextFieldValue()) }
+    var abstractionsText by remember { mutableStateOf(TextFieldValue()) }
+
+    var resultsText by remember { mutableStateOf(TextFieldValue()) }
     var stepDelayMsValue by remember { mutableStateOf("") }
     var isPaused by remember { mutableStateOf(false) }
     var isCodeUpdated by remember { mutableStateOf(false) }
@@ -45,120 +52,162 @@ fun CodeEditorView(
     var layoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
     val textStyle = TextStyle.Default
 
+    val realElements = elements.filter { !it.isAbstrAction }.toMutableStateList()
     LaunchedEffect(Unit) {
-        var code = ""
+        var abstrActions = ""
+        var results = ""
         elements.forEach { e ->
-            code += if (e.isAbstrAction) {
-                "${e.text.value} = ${e.name.value}\n"
+            if (e.isAbstrAction) {
+                abstrActions += "${e.text.value} = ${e.name.value}\n"
             } else {
-                "${e.result.value} = ${e.name.value}\n\n"
+                results += "${e.result.value} = ${e.name.value}\n"
             }
         }
 
-        codeValue = TextFieldValue(code)
+        abstractionsText = TextFieldValue(abstrActions)
+        resultsText = TextFieldValue(results)
     }
 
-    Box {
-        BasicTextField(
-            value = codeValue,
-            textStyle = textStyle,
-            onValueChange = {
-                prevCodeValue = codeValue
-                codeValue = it
-
-                //isElementInserted = false
-
-                if (layoutResult != null) {
-                    val cursorPos = codeValue.selection.end
-                    try {
-                        val cursorRect = layoutResult!!.getCursorRect(cursorPos)
+    Row(Modifier.border(
+        1.dp,
+        color = Color.DarkGray,
+        shape = CutCornerShape(4.dp)
+    )) {
+        Box(
+            Modifier.width(240.dp)
+                .padding(8.dp)
+        ) {
+            BasicTextField(
+                value = resultsText,
+                textStyle = textStyle,
+                onValueChange = {
+                    resultsText = it
+                },
+                onTextLayout = { result ->
+                    layoutResult = result
+                    val cursorPos = abstractionsText.selection.end
+                    if (cursorPos >= 0 && cursorPos <= abstractionsText.text.length) {
+                        val cursorRect = result.getCursorRect(cursorPos)
                         cursorOffsetInTextField = Offset(cursorRect.left, cursorRect.top)
-                    } catch (e: Exception) {
-                        e.printStackTrace()
                     }
-                }
+                },
 
-                isCodeCompletionEnabled = true
+                modifier = Modifier.fillMaxSize().focusRequester(instructionsRequester)
+                    .onGloballyPositioned { coordinates ->
+                        textFieldPosition = coordinates.positionInParent()
+                    })
+        }
 
-            },
-            onTextLayout = { result ->
-                layoutResult = result
-                val cursorPos = codeValue.selection.end
-                if (cursorPos >= 0 && cursorPos <= codeValue.text.length) {
-                    val cursorRect = result.getCursorRect(cursorPos)
-                    cursorOffsetInTextField = Offset(cursorRect.left, cursorRect.top)
-                }
-            },
+        Spacer(Modifier.fillMaxHeight().width(1.dp).background(Color.DarkGray))
 
-            modifier = Modifier.fillMaxSize().focusRequester(instructionsRequester)
-                .onGloballyPositioned { coordinates ->
-                    textFieldPosition = coordinates.positionInParent()
-                })
+        Box(Modifier.weight(1f)
+            .padding(8.dp)) {
+            BasicTextField(
+                value = abstractionsText,
+                textStyle = textStyle,
+                onValueChange = {
+                    prevAbstractionValues = abstractionsText
+                    abstractionsText = it
 
-        val textHeight = measureTextHeight("Height", textStyle)
+                    //isElementInserted = false
 
-        val prevDividerIndex = listOf(
-            codeValue.text.lastIndexOf("\n", codeValue.selection.end - 1),
-            codeValue.text.lastIndexOf(" ", codeValue.selection.end - 1),
-            codeValue.text.lastIndexOf("$", codeValue.selection.end - 1),
-            codeValue.text.lastIndexOf(",", codeValue.selection.end - 1),
-            codeValue.text.lastIndexOf("{", codeValue.selection.end - 1),
-            codeValue.text.lastIndexOf("=", codeValue.selection.end - 1),
-        ).filter { it >= 0 }.maxByOrNull { it } ?: -1
+                    if (layoutResult != null) {
+                        val cursorPos = abstractionsText.selection.end
+                        try {
+                            val cursorRect = layoutResult!!.getCursorRect(cursorPos)
+                            cursorOffsetInTextField = Offset(cursorRect.left, cursorRect.top)
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                        }
+                    }
 
-        val start = prevDividerIndex + 1
-        val query = codeValue.text.substring(
-            startIndex = start, endIndex = if (codeValue.selection.end > start) codeValue.selection.end else start
-        )
-        val x = textFieldPosition.x + cursorOffsetInTextField.x
-        val y = textFieldPosition.y + cursorOffsetInTextField.y
+                    isCodeCompletionEnabled = true
 
-        val isCodeCompletionShown = query.length > 1 //&& !isElementInserted
-        if (isCodeCompletionShown) {
-            val nextDividerIndex = listOf(
-                codeValue.text.indexOf("\n", codeValue.selection.end - 1),
-                codeValue.text.indexOf(" ", codeValue.selection.end - 1),
-                codeValue.text.indexOf(",", codeValue.selection.end - 1),
-            ).filter { it >= 0 }.minByOrNull { it } ?: (codeValue.text.length)
+                },
+                onTextLayout = { result ->
+                    layoutResult = result
+                    val cursorPos = abstractionsText.selection.end
+                    if (cursorPos >= 0 && cursorPos <= abstractionsText.text.length) {
+                        val cursorRect = result.getCursorRect(cursorPos)
+                        cursorOffsetInTextField = Offset(cursorRect.left, cursorRect.top)
+                    }
+                },
+
+                modifier = Modifier.fillMaxSize().focusRequester(instructionsRequester)
+                    .onGloballyPositioned { coordinates ->
+                        textFieldPosition = coordinates.positionInParent()
+                    })
+
+            val textHeight = measureTextHeight("Height", textStyle)
+
+            val prevDividerIndex = listOf(
+                abstractionsText.text.lastIndexOf("\n", abstractionsText.selection.end - 1),
+                abstractionsText.text.lastIndexOf(" ", abstractionsText.selection.end - 1),
+                abstractionsText.text.lastIndexOf("$", abstractionsText.selection.end - 1),
+                abstractionsText.text.lastIndexOf(",", abstractionsText.selection.end - 1),
+                abstractionsText.text.lastIndexOf("{", abstractionsText.selection.end - 1),
+                abstractionsText.text.lastIndexOf("=", abstractionsText.selection.end - 1),
+            ).filter { it >= 0 }.maxByOrNull { it } ?: -1
+
+            val start = prevDividerIndex + 1
+            val query = abstractionsText.text.substring(
+                startIndex = start,
+                endIndex = if (abstractionsText.selection.end > start) abstractionsText.selection.end else start
+            )
+            val x = textFieldPosition.x + cursorOffsetInTextField.x
+            val y = textFieldPosition.y + cursorOffsetInTextField.y
+
+            val isCodeCompletionShown = query.length > 1 //&& !isElementInserted
+            if (isCodeCompletionShown) {
+                val nextDividerIndex = listOf(
+                    abstractionsText.text.indexOf("\n", abstractionsText.selection.end - 1),
+                    abstractionsText.text.indexOf(" ", abstractionsText.selection.end - 1),
+                    abstractionsText.text.indexOf(",", abstractionsText.selection.end - 1),
+                ).filter { it >= 0 }.minByOrNull { it } ?: (abstractionsText.text.length)
 
 
-            Column(
-                Modifier.offset(
-                    x = x.dp - 16.dp,
-                    y = y.dp + textHeight,
-                ).width(200.dp)
-                    .background(Color(0xFF141414))
+                Column(
+                    Modifier.offset(
+                        x = x.dp - 16.dp,
+                        y = y.dp + textHeight,
+                    ).width(200.dp)
+                        .background(Color(0xFF141414))
 
-            ) {
-                val filtered = elements.filter { it.name.value != query && it.name.value.contains(query) }
-                filtered.forEach { element ->
-                    val newText =
-                        StringBuffer(codeValue.text).replace(codeValue.selection.end, nextDividerIndex, "")
-                            .replace(
-                                if (prevDividerIndex == 0) 0 else prevDividerIndex + 1,
-                                codeValue.selection.end,
+                ) {
+                    val filtered = elements.filter { it.name.value != query && it.name.value.contains(query) }
+                    filtered.forEach { element ->
+                        val newText =
+                            StringBuffer(abstractionsText.text).replace(
+                                abstractionsText.selection.end,
+                                nextDividerIndex,
                                 ""
-                            ).insert(
-                                if (prevDividerIndex == 0) 0 else prevDividerIndex + 1, element.name.value
-                            ).toString()
+                            )
+                                .replace(
+                                    if (prevDividerIndex == 0) 0 else prevDividerIndex + 1,
+                                    abstractionsText.selection.end,
+                                    ""
+                                ).insert(
+                                    if (prevDividerIndex == 0) 0 else prevDividerIndex + 1, element.name.value
+                                ).toString()
 
-                    Text(
-                        element.name.value,
-                        color = Color.White,
-                        modifier = Modifier
-                            .clickable {
-                                //isElementInserted = true
-                                isCodeCompletionEnabled = false
-                                val selectorPosition =
-                                    (prevDividerIndex + if (prevDividerIndex == 0) 0 else 1) + element.name.value.length
-                                instructionsRequester.requestFocus()
-                                codeValue = TextFieldValue(
-                                    text = newText,
-                                    selection = TextRange(selectorPosition),
-                                )
-                            }
-                            .padding(horizontal = 8.dp))
-                    Divider(color = Color.DarkGray)
+                        Text(
+                            element.name.value,
+                            color = Color.White,
+                            modifier = Modifier
+                                .clickable {
+                                    //isElementInserted = true
+                                    isCodeCompletionEnabled = false
+                                    val selectorPosition =
+                                        (prevDividerIndex + if (prevDividerIndex == 0) 0 else 1) + element.name.value.length
+                                    instructionsRequester.requestFocus()
+                                    abstractionsText = TextFieldValue(
+                                        text = newText,
+                                        selection = TextRange(selectorPosition),
+                                    )
+                                }
+                                .padding(horizontal = 8.dp))
+                        Divider(color = Color.DarkGray)
+                    }
                 }
             }
 
@@ -178,7 +227,6 @@ fun CodeEditorView(
                 }
             }
 
-
             Row(
                 Modifier.offset(
                     x = 0.dp,
@@ -192,6 +240,5 @@ fun CodeEditorView(
                 )
             }
         }
-
     }
 }
