@@ -4,9 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.CutCornerShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.Divider
 import androidx.compose.material.Text
@@ -45,14 +43,40 @@ fun CodeEditorView(
     var isCodeUpdated by remember { mutableStateOf(false) }
     var isNextStepAllowed by remember { mutableStateOf(false) }
 
+    var isAbstractionCalled by remember { mutableStateOf(false) }
+
     var isCodeCompletionEnabled by remember { mutableStateOf(false) }
-    var textFieldPosition by remember { mutableStateOf(Offset.Zero) }
+    var abstracTextFieldPosition by remember { mutableStateOf(Offset.Zero) }
+    var resultTextFieldPosition by remember { mutableStateOf(Offset.Zero) }
     var cursorOffsetInTextField by remember { mutableStateOf(Offset.Zero) }
 
     var layoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
     val textStyle = TextStyle.Default
 
-    val realElements = elements.filter { !it.isAbstrAction }.toMutableStateList()
+    LaunchedEffect(isAbstractionCalled) {
+        if(!isAbstractionCalled) {
+            return@LaunchedEffect
+        }
+
+        var abstrActions = ""
+        var results = ""
+        elements.forEach { e ->
+            if (e.isAbstrAction) {
+                abstrActions += "${e.text.value} = ${e.name.value}\n"
+            } else {
+                results += "${e.result.value} = ${e.name.value}\n"
+            }
+        }
+
+        abstractionsText = TextFieldValue(abstrActions)
+        resultsText = TextFieldValue(results)
+
+        isAbstractionCalled = false
+    }
+//    LaunchedEffect(Unit) {
+//
+//    }
+
     LaunchedEffect(Unit) {
         var abstrActions = ""
         var results = ""
@@ -68,11 +92,13 @@ fun CodeEditorView(
         resultsText = TextFieldValue(results)
     }
 
-    Row(Modifier.border(
-        1.dp,
-        color = Color.DarkGray,
-        shape = CutCornerShape(4.dp)
-    )) {
+    Row(
+        Modifier.border(
+            1.dp,
+            color = Color.DarkGray,
+            shape = CutCornerShape(4.dp)
+        )
+    ) {
         Box(
             Modifier.width(240.dp)
                 .padding(8.dp)
@@ -85,8 +111,8 @@ fun CodeEditorView(
                 },
                 onTextLayout = { result ->
                     layoutResult = result
-                    val cursorPos = abstractionsText.selection.end
-                    if (cursorPos >= 0 && cursorPos <= abstractionsText.text.length) {
+                    val cursorPos = resultsText.selection.end
+                    if (cursorPos >= 0 && cursorPos <= resultsText.text.length) {
                         val cursorRect = result.getCursorRect(cursorPos)
                         cursorOffsetInTextField = Offset(cursorRect.left, cursorRect.top)
                     }
@@ -94,14 +120,16 @@ fun CodeEditorView(
 
                 modifier = Modifier.fillMaxSize().focusRequester(instructionsRequester)
                     .onGloballyPositioned { coordinates ->
-                        textFieldPosition = coordinates.positionInParent()
+                        resultTextFieldPosition = coordinates.positionInParent()
                     })
         }
 
         Spacer(Modifier.fillMaxHeight().width(1.dp).background(Color.DarkGray))
 
-        Box(Modifier.weight(1f)
-            .padding(8.dp)) {
+        Box(
+            Modifier.weight(1f)
+                .padding(8.dp)
+        ) {
             BasicTextField(
                 value = abstractionsText,
                 textStyle = textStyle,
@@ -135,7 +163,7 @@ fun CodeEditorView(
 
                 modifier = Modifier.fillMaxSize().focusRequester(instructionsRequester)
                     .onGloballyPositioned { coordinates ->
-                        textFieldPosition = coordinates.positionInParent()
+                        abstracTextFieldPosition = coordinates.positionInParent()
                     })
 
             val textHeight = measureTextHeight("Height", textStyle)
@@ -154,8 +182,8 @@ fun CodeEditorView(
                 startIndex = start,
                 endIndex = if (abstractionsText.selection.end > start) abstractionsText.selection.end else start
             )
-            val x = textFieldPosition.x + cursorOffsetInTextField.x
-            val y = textFieldPosition.y + cursorOffsetInTextField.y
+            val x = abstracTextFieldPosition.x + cursorOffsetInTextField.x
+            val y = abstracTextFieldPosition.y + cursorOffsetInTextField.y
 
             val isCodeCompletionShown = query.length > 1 //&& !isElementInserted
             if (isCodeCompletionShown) {
@@ -211,22 +239,35 @@ fun CodeEditorView(
                 }
             }
 
-            val activeElementIndex = remember { elements.indexOfFirst { it.inProgress.value } }
-            if (activeElementIndex != -1) {
+
+//            var e: Element? = null
+            var totalLinesCount = 0
+            val e = elements
+                .filter { it.isAbstrAction }
+                .firstOrNull { element ->
+                    element.inProgress.value.also {
+                        totalLinesCount += element.text.value.count { it == '\n' } + 1
+                    }
+                }
+
+            if (e != null) {
+                val elementLinesCount = e.text.value.count { it == '\n' } + 1
                 Row(
                     Modifier.offset(
                         x = 0.dp,
-                        y = measureTextHeight("Height", textStyle, multiply = activeElementIndex),
-                    ).background(Color.Green.copy(alpha = 0.6f))
+                        y = measureTextHeight("Height", textStyle, multiply = totalLinesCount - elementLinesCount),
+                    ).background(Color.Green.copy(alpha = 0.3f))
                 ) {
                     Spacer(
                         Modifier
-                            .height(textHeight)
+                            .height(textHeight * elementLinesCount)
                             .fillMaxSize()
                     )
                 }
+                isAbstractionCalled = true
             }
-
+/// менять содержимое элемента при редактировании
+//            / вынести цикл из Compose функции
             Row(
                 Modifier.offset(
                     x = 0.dp,

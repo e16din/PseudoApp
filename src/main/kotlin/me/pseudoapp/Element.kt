@@ -15,8 +15,8 @@ data class Element(
     var result: MutableState<String>,
     var area: MutableState<Rect>,
     val color: Color,
-    val isAbstrAction: Boolean = true, // Circle\Rect
-    val isFilled: Boolean = true, // Real\Abstract
+    val isAbstrAction: Boolean = true, // or Result // Circle/Rect
+    val isFilled: Boolean = true,
 //    val createdMs: Long = System.currentTimeMillis(),
     val elements: SnapshotStateList<Element> = mutableStateListOf<Element>()
 )

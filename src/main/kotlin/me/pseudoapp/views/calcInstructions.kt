@@ -36,9 +36,9 @@ val unknownResult = "?"
 
 
 fun calcInstructions(
+    element: Element,
     elements: SnapshotStateList<Element>,
     starters: SnapshotStateList<Element?>,
-    element: Element,
     stepDelayMsValue: MutableState<Long>,
 ): CalcState {
     // program is done ? see: doneOp
@@ -52,7 +52,7 @@ fun calcInstructions(
     }
 
     element.elements.forEach { e ->
-        calcInstructions(e.elements, starters, e, stepDelayMsValue)
+        calcInstructions(e, e.elements, starters, stepDelayMsValue)
     }
 
     fun doInsertAndCalcValues(a: CharSequence): CharSequence {

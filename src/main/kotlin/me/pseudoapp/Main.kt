@@ -36,7 +36,9 @@ fun App() {
 }
 
 fun main() = application {
-    Window(onCloseRequest = ::exitApplication) {
+    Window(
+        title = "Pseudo App",
+        onCloseRequest = ::exitApplication) {
         App()
     }
 }

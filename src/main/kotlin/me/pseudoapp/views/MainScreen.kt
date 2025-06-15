@@ -14,6 +14,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.input.key.*
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import me.pseudoapp.Element
 import me.pseudoapp.other.pickImage
 
@@ -31,9 +37,116 @@ fun MainScreen() {
 
     val isCodeEditorMode = remember { mutableStateOf(false) }
 
+    val rootElement = remember {
+        Element(
+            name = mutableStateOf("App"),
+//                condition = mutableStateOf(""),
+            text = mutableStateOf(""),
+            result = mutableStateOf(""),
+            area = mutableStateOf(
+                Rect(
+                    topLeft = Offset.Zero,
+                    bottomRight = Offset.Zero
+                )
+            ),
+            color = Color.White
+        )
+    }
+
+
+    var selectedElement by remember { mutableStateOf(rootElement) }
+    val diveElements = remember { mutableStateListOf(rootElement) }
 
     LaunchedEffect(Unit) {
         keyboardRequester.requestFocus()
+    }
+
+    var calcState = remember { mutableStateOf(CalcState.InProgress) }
+    val stepDelayMsValue = remember { mutableStateOf(200L) }
+    val isNextStepAllowed = remember { mutableStateOf(false) }
+
+    val startCycleElements = mutableStateListOf<Element?>()
+
+    LaunchedEffect(calcState, isNextStepAllowed) {
+        println("lifecycle:")
+        // Lifecycle
+        CoroutineScope(Dispatchers.IO + SupervisorJob()).launch {
+            while (calcState.value != CalcState.Done) {
+
+
+                if (selectedElement.elements.isEmpty()) {
+                    continue
+                }
+
+                if (calcState.value != CalcState.Paused
+                    || isNextStepAllowed.value
+                ) {
+
+                    if (i > selectedElement.elements.size - 1 || i < startIndex) {
+                        i = startIndex
+                    }
+                    println("i c: $i")
+
+                    val e = selectedElement.elements[i]
+
+                    fun findStartIndex(): Int {
+                        startIndex = selectedElement.elements.indexOf(startCycleElements.lastOrNull())
+                        if (startIndex == -1) {
+                            startIndex = 0
+                        }
+                        return startIndex
+                    }
+
+                    if (e.isAbstrAction) {
+                        delay(stepDelayMsValue.value)
+
+                        println("calcState: $calcState")
+                        println("isNextStepAllowed: ${isNextStepAllowed.value}")
+                        println("contentElement: ${selectedElement.name.value}")
+
+                        withContext(Dispatchers.Default) {
+                            if (isNextStepAllowed.value) {
+                                calcState.value = CalcState.Paused
+                                isNextStepAllowed.value = false
+                            }
+                        }
+
+                        try {
+
+                            startIndex = findStartIndex()
+                            println("startCycleElement: ${startCycleElements.lastOrNull()?.name?.value}")
+                            println("startIndex a: $startIndex")
+
+                            println("i a: $i")
+
+                            if (i >= startIndex) {
+                                withContext(Dispatchers.Default) {
+                                    val result =
+                                        calcInstructions(
+                                            e,
+                                            selectedElement.elements,
+                                            startCycleElements,
+                                            stepDelayMsValue
+                                        )
+                                    if (result == CalcState.Paused || result == CalcState.Done) {
+                                        calcState.value = result
+                                    }
+                                }
+                            }
+
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                        }
+                    }
+
+                    i += 1
+
+                    startIndex = findStartIndex()
+                    println("startIndex b: $startIndex")
+                    println("i b: $i")
+                }
+            }
+        }
     }
 
     Column(
@@ -61,24 +174,7 @@ fun MainScreen() {
             Text("Выбрать изображение")
         }
 
-        val rootElement = remember {
-            Element(
-                name = mutableStateOf("App"),
-//                condition = mutableStateOf(""),
-                text = mutableStateOf(""),
-                result = mutableStateOf(""),
-                area = mutableStateOf(
-                    Rect(
-                        topLeft = Offset.Zero,
-                        bottomRight = Offset.Zero
-                    )
-                ),
-                color = Color.White
-            )
-        }
 
-        var selectedElement by remember { mutableStateOf(rootElement) }
-        val diveElements = remember { mutableStateListOf(rootElement) }
         Row {
             Column {
                 Row {
@@ -112,7 +208,7 @@ fun MainScreen() {
                     }
                     Spacer(Modifier.weight(1f))
                     OutlinedButton(onClick = {
-                       // todo
+                        // todo
                     }, Modifier.padding(start = 8.dp, end = 16.dp)) {
                         Text("Save")
                     }
@@ -140,6 +236,9 @@ fun MainScreen() {
                             ctrlPressed = ctrlPressed,
                             shiftPressed = shiftPressed,
                             selectedImage = selectedImage,
+                            calcState,
+                            isNextStepAllowed,
+                            stepDelayMsValue,
                             onNewElement = { element ->
                                 newElement.value = element
                             },

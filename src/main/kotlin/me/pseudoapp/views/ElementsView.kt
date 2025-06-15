@@ -35,7 +35,6 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.delay
 import me.pseudoapp.*
 import me.pseudoapp.icons.play
 import me.pseudoapp.icons.playPause
@@ -65,6 +64,9 @@ fun ElementsView(
     ctrlPressed: MutableState<Boolean>,
     shiftPressed: MutableState<Boolean>,
     selectedImage: ImageBitmap?,
+    calcState: MutableState<CalcState>,
+    isNextStepAllowed: MutableState<Boolean>,
+    stepDelayMsValue: MutableState<Long>,
     onNewElement: (Element) -> Unit,
     onDiveInClick: (Element) -> Unit,
     modifier: Modifier
@@ -77,76 +79,9 @@ fun ElementsView(
 
     val elements = contentElement.elements
 
-    val stepDelayMsValue = remember { mutableStateOf(200L) }
-    var calcState by remember { mutableStateOf(CalcState.InProgress) }
-    val isNextStepAllowed = remember { mutableStateOf(false) }
 
-    val startCycleElements = mutableStateListOf<Element?>()
 
-    LaunchedEffect(calcState, isNextStepAllowed) {
-        println("lifecycle:")
-        // Lifecycle
-        while (calcState != CalcState.Done) {
-            delay(stepDelayMsValue.value)
 
-            if (contentElement.elements.isEmpty()) {
-                continue
-            }
-
-            if (calcState != CalcState.Paused
-                || isNextStepAllowed.value
-            ) {
-                println("calcState: $calcState")
-                println("isNextStepAllowed: ${isNextStepAllowed.value}")
-                println("contentElement: ${contentElement.name.value}")
-
-                if (isNextStepAllowed.value) {
-                    calcState = CalcState.Paused
-                    isNextStepAllowed.value = false
-                }
-
-                println("s3")
-                fun findStartIndex(): Int {
-                    startIndex = elements.indexOf(startCycleElements.lastOrNull())
-                    if (startIndex == -1) {
-                        startIndex = 0
-                    }
-                    return startIndex
-                }
-
-                if (i > contentElement.elements.size - 1 || i < startIndex) {
-                    i = startIndex
-                }
-                println("i c: $i")
-
-                try {
-                    val e = contentElement.elements[i]
-
-                    startIndex = findStartIndex()
-                    println("startCycleElement: ${startCycleElements.lastOrNull()?.name?.value}")
-                    println("startIndex a: $startIndex")
-
-                    println("i a: $i")
-
-                    if (i >= startIndex) {
-                        val result = calcInstructions(elements, startCycleElements, e, stepDelayMsValue)
-                        if (result == CalcState.Paused || result == CalcState.Done) {
-                            calcState = result
-                        }
-                    }
-
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                }
-
-                i += 1
-
-                startIndex = findStartIndex()
-                println("startIndex b: $startIndex")
-                println("i b: $i")
-            }
-        }
-    }
 
     LaunchedEffect(dragEnd) {
         if (!dragEnd) {
@@ -203,13 +138,13 @@ fun ElementsView(
 //    val textMeasurer = rememberTextMeasurer()
 
     fun onPlayClick() {
-        calcState = CalcState.InProgress
+        calcState.value = CalcState.InProgress
         hotkeysFocusRequester.requestFocus()
     }
 
     @Composable
     fun PlayPauseButtons() {
-        if (calcState == CalcState.Paused) {
+        if (calcState.value == CalcState.Paused) {
             Icon(
                 playPause, "playPause", Modifier
                     .padding(4.dp)
@@ -222,7 +157,7 @@ fun ElementsView(
             )
         }
 
-        if (calcState == CalcState.Paused || calcState == CalcState.Done) {
+        if (calcState.value == CalcState.Paused || calcState.value == CalcState.Done) {
             Icon(
                 play, "play", Modifier
                     .padding(4.dp)
@@ -338,7 +273,7 @@ fun ElementsView(
         }
 
         @Composable
-        fun addRealElementView(element: Element, i: Int) {
+        fun addResultElement(element: Element, i: Int) {
             val textWidth = measureTextWidth(element.name.value) + 8.dp
             val textHeight = measureTextHeight(element.name.value)
             val x = element.area.value.left + element.area.value.width / 2 - textWidth.dpToPx() / 2f
@@ -422,7 +357,7 @@ fun ElementsView(
         }
 
         @Composable
-        fun addAbstractElementView(element: Element, i: Int) {
+        fun addAbstractionElement(element: Element, i: Int) {
             val textWidth = measureTextWidth(element.name.value) + 8.dp
             val textHeight = measureTextHeight(element.name.value)
             val x = element.area.value.left + element.area.value.width / 2 - textWidth.dpToPx() / 2f
@@ -528,9 +463,9 @@ fun ElementsView(
 
         elements.forEachIndexed { i, element ->
             if (element.isAbstrAction) {
-                addAbstractElementView(element, i)
+                addAbstractionElement(element, i)
             } else {
-                addRealElementView(element, i)
+                addResultElement(element, i)
             }
         }
 
@@ -586,7 +521,7 @@ fun ElementsView(
                     .padding(6.dp)
             )
 
-            if (calcState == CalcState.Paused) {
+            if (calcState.value == CalcState.Paused) {
                 Button(onClick = {
                     isNextStepAllowed.value = true
 
@@ -596,12 +531,12 @@ fun ElementsView(
             }
 
             IconToggleButton(
-                calcState == CalcState.Paused || calcState == CalcState.Done,
+                calcState.value == CalcState.Paused || calcState.value == CalcState.Done,
                 onCheckedChange = {
-                    calcState = if (it) CalcState.Paused else CalcState.InProgress
+                    calcState.value = if (it) CalcState.Paused else CalcState.InProgress
                 },
                 content = {
-                    if (calcState == CalcState.Paused || calcState == CalcState.Done)
+                    if (calcState.value == CalcState.Paused || calcState.value == CalcState.Done)
                         Icon(
                             Icons.Default.PlayArrow,
                             contentDescription = "play"
