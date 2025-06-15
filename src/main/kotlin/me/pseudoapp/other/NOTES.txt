@@ -5,6 +5,10 @@
 # 12 = x
 
 
+debug
+ab => i:name
+1 => i:x
+
 Обновляем название элемента
 
  newName => i:name

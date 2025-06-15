@@ -80,9 +80,6 @@ fun ElementsView(
     val elements = contentElement.elements
 
 
-
-
-
     LaunchedEffect(dragEnd) {
         if (!dragEnd) {
             return@LaunchedEffect
@@ -406,6 +403,7 @@ fun ElementsView(
             BasicTextField(
                 value = elements[i].text.value,
                 onValueChange = {
+                    calcState.value = CalcState.Paused
                     element.text.value = it
                 },
                 textStyle = TextStyle.Default.copy(textAlign = TextAlign.Center),
@@ -436,6 +434,7 @@ fun ElementsView(
                 BasicTextField(
                     value = elements[i].result.value,
                     onValueChange = {
+                        calcState.value = CalcState.Paused
                         element.result.value = it
                     },
                     textStyle = TextStyle.Default.copy(

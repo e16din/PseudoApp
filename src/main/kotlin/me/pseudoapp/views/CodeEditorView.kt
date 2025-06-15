@@ -27,9 +27,11 @@ import me.pseudoapp.other.measureTextHeight
 
 const val unknown = "?"
 
+
 @Composable
 fun CodeEditorView(
-    elements: SnapshotStateList<Element>
+    elements: SnapshotStateList<Element>,
+    calcState: MutableState<CalcState>
 ) {
 
     val instructionsRequester = remember { FocusRequester() }
@@ -38,8 +40,7 @@ fun CodeEditorView(
     var abstractionsText by remember { mutableStateOf(TextFieldValue()) }
 
     var resultsText by remember { mutableStateOf(TextFieldValue()) }
-    var stepDelayMsValue by remember { mutableStateOf("") }
-    var isPaused by remember { mutableStateOf(false) }
+
     var isCodeUpdated by remember { mutableStateOf(false) }
     var isNextStepAllowed by remember { mutableStateOf(false) }
 
@@ -53,11 +54,8 @@ fun CodeEditorView(
     var layoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
     val textStyle = TextStyle.Default
 
-    LaunchedEffect(isAbstractionCalled) {
-        if(!isAbstractionCalled) {
-            return@LaunchedEffect
-        }
 
+    fun updateTextFields() {
         var abstrActions = ""
         var results = ""
         elements.forEach { e ->
@@ -70,27 +68,39 @@ fun CodeEditorView(
 
         abstractionsText = TextFieldValue(abstrActions)
         resultsText = TextFieldValue(results)
-
-        isAbstractionCalled = false
     }
+
+    if (calcState.value == CalcState.Paused) {
+        LaunchedEffect(Unit) {
+            updateTextFields()
+        }
+    } else {
+
+        LaunchedEffect(isAbstractionCalled) {
+            if (!isAbstractionCalled) {
+                return@LaunchedEffect
+            }
+
+            updateTextFields()
+
+            isAbstractionCalled = false
+        }
+    }
+
 //    LaunchedEffect(Unit) {
+//        var abstrActions = ""
+//        var results = ""
+//        elements.forEach { e ->
+//            if (e.isAbstrAction) {
+//                abstrActions += "${e.text.value} = ${e.name.value}\n"
+//            } else {
+//                results += "${e.result.value} = ${e.name.value}\n"
+//            }
+//        }
 //
+//        abstractionsText = TextFieldValue(abstrActions)
+//        resultsText = TextFieldValue(results)
 //    }
-
-    LaunchedEffect(Unit) {
-        var abstrActions = ""
-        var results = ""
-        elements.forEach { e ->
-            if (e.isAbstrAction) {
-                abstrActions += "${e.text.value} = ${e.name.value}\n"
-            } else {
-                results += "${e.result.value} = ${e.name.value}\n"
-            }
-        }
-
-        abstractionsText = TextFieldValue(abstrActions)
-        resultsText = TextFieldValue(results)
-    }
 
     Row(
         Modifier.border(
@@ -107,6 +117,7 @@ fun CodeEditorView(
                 value = resultsText,
                 textStyle = textStyle,
                 onValueChange = {
+                    calcState.value = CalcState.Paused
                     resultsText = it
                 },
                 onTextLayout = { result ->
@@ -134,6 +145,8 @@ fun CodeEditorView(
                 value = abstractionsText,
                 textStyle = textStyle,
                 onValueChange = {
+                    calcState.value = CalcState.Paused
+
                     prevAbstractionValues = abstractionsText
                     abstractionsText = it
 
@@ -240,9 +253,8 @@ fun CodeEditorView(
             }
 
 
-//            var e: Element? = null
             var totalLinesCount = 0
-            val e = elements
+            var inProgressElement = elements
                 .filter { it.isAbstrAction }
                 .firstOrNull { element ->
                     element.inProgress.value.also {
@@ -250,8 +262,8 @@ fun CodeEditorView(
                     }
                 }
 
-            if (e != null) {
-                val elementLinesCount = e.text.value.count { it == '\n' } + 1
+            if (inProgressElement != null) {
+                val elementLinesCount = inProgressElement!!.text.value.count { it == '\n' } + 1
                 Row(
                     Modifier.offset(
                         x = 0.dp,
@@ -264,8 +276,12 @@ fun CodeEditorView(
                             .fillMaxSize()
                     )
                 }
-                isAbstractionCalled = true
+                if (calcState.value == CalcState.InProgress) {
+                    isAbstractionCalled = true
+                }
             }
+
+
 /// менять содержимое элемента при редактировании
 //            / вынести цикл из Compose функции
             Row(

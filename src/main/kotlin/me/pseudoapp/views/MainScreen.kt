@@ -61,9 +61,10 @@ fun MainScreen() {
         keyboardRequester.requestFocus()
     }
 
-    var calcState = remember { mutableStateOf(CalcState.InProgress) }
+    val calcState = remember { mutableStateOf(CalcState.InProgress) }
     val stepDelayMsValue = remember { mutableStateOf(200L) }
     val isNextStepAllowed = remember { mutableStateOf(false) }
+    var isPaused by remember { mutableStateOf(false) }
 
     val startCycleElements = mutableStateListOf<Element?>()
 
@@ -227,7 +228,7 @@ fun MainScreen() {
                         .padding(12.dp)
                 ) {
                     if (isCodeEditorMode.value) {
-                        CodeEditorView(selectedElement.elements)
+                        CodeEditorView(selectedElement.elements, calcState)
 
                     } else {
                         ElementsView(
