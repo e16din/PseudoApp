@@ -83,12 +83,12 @@ fun MainScreen() {
                     || isNextStepAllowed.value
                 ) {
 
-                    if (i > selectedElement.elements.size - 1 || i < startIndex) {
-                        i = startIndex
+                    if (lifecycleElementPosition > selectedElement.elements.size - 1 || lifecycleElementPosition < startIndex) {
+                        lifecycleElementPosition = startIndex
                     }
-                    println("i c: $i")
+                    println("i c: $lifecycleElementPosition")
 
-                    val e = selectedElement.elements[i]
+                    val e = selectedElement.elements[lifecycleElementPosition]
 
                     fun findStartIndex(): Int {
                         startIndex = selectedElement.elements.indexOf(startCycleElements.lastOrNull())
@@ -118,9 +118,9 @@ fun MainScreen() {
                             println("startCycleElement: ${startCycleElements.lastOrNull()?.name?.value}")
                             println("startIndex a: $startIndex")
 
-                            println("i a: $i")
+                            println("i a: $lifecycleElementPosition")
 
-                            if (i >= startIndex) {
+                            if (lifecycleElementPosition >= startIndex) {
                                 withContext(Dispatchers.Default) {
                                     val result =
                                         calcInstructions(
@@ -140,11 +140,11 @@ fun MainScreen() {
                         }
                     }
 
-                    i += 1
+                    lifecycleElementPosition += 1
 
                     startIndex = findStartIndex()
                     println("startIndex b: $startIndex")
-                    println("i b: $i")
+                    println("i b: $lifecycleElementPosition")
                 }
             }
         }

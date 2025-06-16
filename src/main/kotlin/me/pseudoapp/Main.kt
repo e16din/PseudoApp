@@ -47,7 +47,7 @@ var windowSize = IntSize.Zero
 var layoutRect = Rect.Zero
 var currentColor = RainbowColor.Violet
 
-var currentCharCode = 'a'.code
+var currentCharCode = 'A'.code
 
 
 enum class RainbowColor(val color: Color) {

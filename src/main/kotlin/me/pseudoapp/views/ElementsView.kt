@@ -53,7 +53,7 @@ enum class CalcState {
     Done
 }
 
-var i = 0
+var lifecycleElementPosition = 0
 var startIndex = 0
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -354,7 +354,7 @@ fun ElementsView(
         }
 
         @Composable
-        fun addAbstractionElement(element: Element, i: Int) {
+        fun addAbstractionElement(element: Element, index: Int) {
             val textWidth = measureTextWidth(element.name.value) + 8.dp
             val textHeight = measureTextHeight(element.name.value)
             val x = element.area.value.left + element.area.value.width / 2 - textWidth.dpToPx() / 2f
@@ -368,7 +368,7 @@ fun ElementsView(
             ) {
 
                 BasicTextField(
-                    value = elements[i].name.value,
+                    value = elements[index].name.value,
                     onValueChange = {
                         element.name.value = it
                     },
@@ -390,7 +390,7 @@ fun ElementsView(
                         .clip(CircleShape)
                         .background(element.color.copy(alpha = 0.32f))
                         .clickable {
-                            elementWithMenuId = i
+                            elementWithMenuId = index
                         }
                         .padding(bottom = 2.dp)
                 )
@@ -401,9 +401,11 @@ fun ElementsView(
             val x2 = element.area.value.left + element.area.value.width / 2 - textWidth2.dpToPx() / 2f
             val y2 = element.area.value.top + 0.dp.dpToPx() + element.area.value.height / 2 - textHeight2.dpToPx() / 2f
             BasicTextField(
-                value = elements[i].text.value,
+                value = elements[index].text.value,
                 onValueChange = {
                     calcState.value = CalcState.Paused
+                    elements.firstOrNull { it.inProgress.value }?.inProgress?.value = false
+                    element.inProgress.value = true
                     element.text.value = it
                 },
                 textStyle = TextStyle.Default.copy(textAlign = TextAlign.Center),
@@ -432,9 +434,8 @@ fun ElementsView(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 BasicTextField(
-                    value = elements[i].result.value,
+                    value = elements[index].result.value,
                     onValueChange = {
-                        calcState.value = CalcState.Paused
                         element.result.value = it
                     },
                     textStyle = TextStyle.Default.copy(

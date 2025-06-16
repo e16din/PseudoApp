@@ -7,7 +7,9 @@ import me.pseudoapp.Element
 import me.pseudoapp.other.firstContained
 import me.pseudoapp.other.isDigitsOnly
 import me.pseudoapp.other.positionOf
+import me.pseudoapp.other.split
 import kotlin.math.abs
+
 
 val mathEvaluator = Evaluator()
 var activeElement: Element? = null
@@ -22,15 +24,14 @@ val stepDelayOp = "=stepDelay"
 
 val innerValueDelimiter = ":"
 
-val sizeOp = ":size"
 val nameOp = ":name"
 val colorOp = ":color"
 
 val xOp = ":x"
 val yOp = ":y"
 
-val widthOp = ":width"
-val heightOp = ":height"
+val widthOp = ":w"
+val heightOp = ":h"
 
 val unknownResult = "?"
 
@@ -39,7 +40,7 @@ fun calcInstructions(
     element: Element,
     elements: SnapshotStateList<Element>,
     starters: SnapshotStateList<Element?>,
-    stepDelayMsValue: MutableState<Long>,
+    stepDelayMsValue: MutableState<Long>
 ): CalcState {
     // program is done ? see: doneOp
     activeElement?.inProgress?.value = false
@@ -79,6 +80,7 @@ fun calcInstructions(
             val name = e.name.value
             if (!name.isEmpty()) {
                 index = action.indexOf(name)
+//                index = max(0, action.positionOf(" ", startIndex = index, fromEndToStart = true))
                 endIndex = action.indexOf(" ", index)
                 val b = elements.firstOrNull { it.name.value == name }?.result?.value
                 while (index < opIndex && index != -1 && endIndex != -1 && index != endIndex && endIndex - index == name.length) {
@@ -89,6 +91,7 @@ fun calcInstructions(
                         action.replace(index, endIndex, b)
                     }
                     index = action.indexOf(name, endIndex)
+//                    index = max(0, action.positionOf(" ", startIndex = index, fromEndToStart = true))
                     endIndex = action.indexOf(" ", index)
                 }
             }
@@ -110,10 +113,28 @@ fun calcInstructions(
             }
 
             val op = action.substring(startArrayOpIndex + 1, endArrayOpIndex)
-            val array = action.substring(startArrayIndex, endArrayIndex) // [op]array
-
+            val array = action.split("]")[1].split(" =")[0] // [op]array
 
             when {
+                // сколько элементов до разделителя ?.
+                // [A?|.]AABB|ABABA // 2 элемента A
+                // [?.]AABB|ABABA // 10 элементов всего
+
+                op.contains("?") && op.endsWith(".") -> {
+                    val lr = op.split("?")
+                    val query = lr[0]
+                    val delimiter = lr[1].trimEnd('.')
+                    if (query.isEmpty() && delimiter.isEmpty()) {
+                        action.replace(
+                            startArrayOpIndex, endArrayIndex, array.length.toString()
+                        )
+                    } else {
+                        action.replace(
+                            startArrayOpIndex, endArrayIndex, array.length.toString()
+                        )
+                    }
+                }
+
                 // переворачиваем данные(инвертируем порядок)
                 //                      [!]abcd
                 op == "!" -> {
@@ -224,58 +245,53 @@ fun calcInstructions(
             endArrayOpIndex = action.indexOf("]", endArrayOpIndex + 1)
         }
 
-        fun replaceOp(op: String, insertion: (value: String) -> String) {
-            var sizeEndIndex = action.indexOf(op)
-            var sizeStartIndex = action.positionOf(" ", sizeEndIndex, fromEndToStart = true) + 1
+        fun replaceOp(action: StringBuilder, op: String, insertion: (value: String) -> String) {
+            var sizeOpEndIndex = action.indexOf(op)
+            var sizeOpStartIndex = action.positionOf(" ", sizeOpEndIndex, fromEndToStart = true) + 1
 
-            while (sizeStartIndex != -1 && sizeEndIndex != -1) {
-                val value = action.substring(sizeStartIndex, sizeEndIndex)
+            while (sizeOpEndIndex < opIndex && sizeOpStartIndex != -1 && sizeOpEndIndex != -1) {
+                val value = action.substring(sizeOpStartIndex, sizeOpEndIndex)
 
-                action.replace(sizeEndIndex, sizeEndIndex + op.length, "")
-                action.replace(sizeStartIndex, sizeEndIndex, insertion(value))
+                action.replace(sizeOpEndIndex, sizeOpEndIndex + op.length, "")
+                action.replace(sizeOpStartIndex, sizeOpEndIndex, insertion(value))
 
-                sizeEndIndex = action.indexOf(sizeOp, sizeEndIndex + 1)
-                sizeStartIndex = action.positionOf(" ", sizeEndIndex, fromEndToStart = true) + 1
+                sizeOpEndIndex = action.indexOf(op, sizeOpEndIndex + 1)
+                sizeOpStartIndex = action.positionOf(" ", sizeOpEndIndex, fromEndToStart = true) + 1
             }
         }
 
-        // Step: Подставляем размеры массивов/строк
-        replaceOp(sizeOp) { value ->
-            return@replaceOp value.length.toString()
-        }
-
         // Step: Подставляем цвета элементов
-        replaceOp(colorOp) { value ->
+        replaceOp(action, colorOp) { value ->
             val e = elements.firstOrNull { it.name.value == value }
             return@replaceOp e?.let { e.color.value.toString() } ?: unknownResult //todo: print hex value
         }
 
         // Step: Подставляем ширину элементов
-        replaceOp(widthOp) { value ->
+        replaceOp(action, widthOp) { value ->
             val e = elements.firstOrNull { it.name.value == value }
             return@replaceOp e?.let { e.area.value.width.toString() } ?: unknownResult
         }
 
         // Step: Подставляем высоту элементов
-        replaceOp(heightOp) { value ->
+        replaceOp(action, heightOp) { value ->
             val e = elements.firstOrNull { it.name.value == value }
             return@replaceOp e?.let { e.area.value.height.toString() } ?: unknownResult
         }
 
         // Step: Подставляем x элементов
-        replaceOp(xOp) { value ->
+        replaceOp(action, xOp) { value ->
             val e = elements.firstOrNull { it.name.value == value }
             return@replaceOp e?.let { e.area.value.left.toString() } ?: unknownResult
         }
 
         // Step: Подставляем y элементов
-        replaceOp(yOp) { value ->
+        replaceOp(action, yOp) { value ->
             val e = elements.firstOrNull { it.name.value == value }
             return@replaceOp e?.let { e.area.value.top.toString() } ?: unknownResult
         }
 
         // Step: Подставляем stepDelay элементов
-        replaceOp(stepDelayOp) { value ->
+        replaceOp(action, stepDelayOp) { value ->
             val e = elements.firstOrNull { it.name.value == value }
             return@replaceOp e?.let { stepDelayMsValue.value.toString() } ?: unknownResult
         }
@@ -286,14 +302,17 @@ fun calcInstructions(
         return action
     }
 
-
     var singleAction = StringBuilder(doInsertAndCalcValues(element.text.value))
+    println("singleAction: $singleAction")
 
     var needToDo = true
-    val questionLeftRight = singleAction.split(questionOp)
-    if (singleAction.contains(questionOp)) {
+    val questionLeftRight = singleAction.split(questionOp, false, 2)
+    if (!singleAction.startsWith("[$questionOp")
+        && (singleAction.contains(questionOp) || singleAction.contains("?\n"))
+    ) {
         val condition = questionLeftRight[0]
-        singleAction = StringBuilder(questionLeftRight[1])
+        val right = questionLeftRight.getOrNull(1) ?: ""
+        singleAction = StringBuilder(right)
 
         if (condition.isBlank()) {
             needToDo = true
@@ -423,9 +442,22 @@ fun calcInstructions(
             when {
                 action.contains(setOp) -> {
                     val leftRight = action.split(setOp)
+                    println("leftRight: ${leftRight}")
+
                     var value = leftRight[0].trim().replace(opStub, setOp)
 
-                    if (value.indexOfAny(charArrayOf('+', '-', '*', '/', '%')) != -1 && value.isDigitsOnly(' ', '.', '(', ')', '+', '-', '*', '/', '%')) {
+                    if (value.indexOfAny(charArrayOf('+', '-', '*', '/', '%')) != -1 && value.isDigitsOnly(
+                            ' ',
+                            '.',
+                            '(',
+                            ')',
+                            '+',
+                            '-',
+                            '*',
+                            '/',
+                            '%'
+                        )
+                    ) {
                         value = mathEvaluator.evaluateDouble(value).toString().removeSuffix(".0")
                     }
 
@@ -453,6 +485,16 @@ fun calcInstructions(
 
                                             yOp -> {
                                                 it.area.value = it.area.value.copy(top = value.toFloat())
+                                            }
+
+                                            widthOp -> {
+                                                val right = it.area.value.left + value.toFloat()
+                                                it.area.value = it.area.value.copy(right = right)
+                                            }
+
+                                            heightOp -> {
+                                                val bottom = it.area.value.top + value.toFloat()
+                                                it.area.value = it.area.value.copy(bottom = bottom)
                                             }
                                         }
                                     }
@@ -494,8 +536,10 @@ fun calcInstructions(
     val sourceAction = element.text.value
     println("sourceAction: $sourceAction")
     if (sourceAction.trim().contains(questionOp.trim()) && sourceAction.endsWith(".")) {
+        val indexOfQuestion = sourceAction.indexOf(questionOp.trim())
         val lines = sourceAction.substring(
-            sourceAction.indexOf(unknownResult) + 1, sourceAction.lastIndexOf(".")
+            if (indexOfQuestion + 1 == sourceAction.length) indexOfQuestion else indexOfQuestion + 1,
+            sourceAction.lastIndexOf(".")
         ).split("\n").drop(1).dropLast(1)
 
         lines.forEach { lineAction ->
