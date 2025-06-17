@@ -104,10 +104,15 @@ fun calcInstructions(
         while (startArrayOpIndex < opIndex && startArrayOpIndex != -1 && endArrayOpIndex != -1) {
             val startArrayIndex = endArrayOpIndex + 1
             var endArrayIndex = action.positionOf(
-                {
-                    it == " " || it == "["
-                }, startIndex = endArrayOpIndex
+                { it == "[" },
+                startIndex = endArrayOpIndex
             )
+            if (endArrayIndex == -1) {
+                endArrayIndex = action.positionOf(
+                    { it == "=" },
+                    startIndex = endArrayOpIndex
+                ) - 1 // [?.]abc| =|> q
+            }
             if (endArrayIndex == -1) {
                 endArrayIndex = action.length
             }
@@ -119,7 +124,6 @@ fun calcInstructions(
                 // сколько элементов до разделителя ?.
                 // [A?|.]AABB|ABABA // 2 элемента A
                 // [?.]AABB|ABABA // 10 элементов всего
-
                 op.contains("?") && op.endsWith(".") -> {
                     val lr = op.split("?")
                     val query = lr[0]
@@ -129,9 +133,19 @@ fun calcInstructions(
                             startArrayOpIndex, endArrayIndex, array.length.toString()
                         )
                     } else {
+                        var count = 0
+                        var index = array.indexOf(query)
+                        val delimiterIndex = array.indexOf(delimiter)
+                        while (index != -1 && (index < delimiterIndex || delimiterIndex == -1)) {
+                            count += 1
+                            index = array.indexOf(query, index + 1)
+                        }
+
+                        println("action a: $action")
                         action.replace(
-                            startArrayOpIndex, endArrayIndex, array.length.toString()
+                            startArrayOpIndex, endArrayIndex, count.toString()
                         )
+                        println("action b: $action")
                     }
                 }
 
