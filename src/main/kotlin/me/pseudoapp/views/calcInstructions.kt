@@ -138,19 +138,56 @@ fun calcInstructions(
             println("[arrays] op: $op | array: $array")
 
             when {
-                // взять подстроку по номеру между разделителями
+                // переместить подстроку по номеру между разделителями
+                // [temp <- 3:|]1|2|3,|abc|5 // temp == 3, | source == 1|2|abc|5
+                // [temp <- 2]1|2|3 // temp == |, | source == 12|3
+                // [temp <- 2..4]1|2|3 // temp == |2|, | source == 13
+
+                // удалить
+
+                // копировать
+
+                // удалить подстроку по номеру между разделителями
+                // [-2:, ]1, 2, 3, 4, 5 // 1, 3, 4, 5
+                // [-3:|]AA|BB|A,|BAB,|A // AA|BB|BAB,|A
+                op.startsWith("-") && op.contains(":") -> {
+                    val lr = op.split(":")
+                    var position = abs(lr[0].toInt())
+                    val delimiter = lr[1]
+                    position -= if (delimiter.isEmpty()) 0 else 1
+
+                    val substrings = array.split(delimiter)
+                    val reduced = substrings.reduceIndexed { i, a, b ->
+                        a + if (i == position) "" else delimiter + b
+                    }
+
+                    println("reduced: $reduced")
+
+                    action.replace(
+                        startReplacedIndex, endArrayIndex,
+                        if (position >= substrings.size || position < 0)
+                            ""
+                        else {
+                            reduced
+                        }
+                    )
+                }
+
+                // копировать подстроку по номеру между разделителями
                 // [2:, ]AA, BB|, A, BAB, A // BB|
                 // [3:|]AA|BB|A,|BAB,|A // A,
                 op.contains(":") -> {
                     val lr = op.split(":")
-                    val position = lr[0].toInt() - 1
+                    var position = lr[0].toInt()
                     val delimiter = lr[1]
+                    position -= if (delimiter.isEmpty()) 0 else 1
 
                     val substrings = array.split(delimiter)
 
                     action.replace(
                         startReplacedIndex, endArrayIndex,
-                        if (position >= substrings.size || position < 0) "" else substrings[position]
+                        if (position >= substrings.size || position < 0) ""
+                        else substrings[position]
                     )
                 }
 
@@ -183,7 +220,7 @@ fun calcInstructions(
                 }
 
                 // переворачиваем данные(инвертируем порядок)
-                //                      [!]abcd
+                // [!]abcd
                 op == "!" -> {
                     action.replace(
                         startReplacedIndex, endArrayIndex, array.reversed()
@@ -191,7 +228,7 @@ fun calcInstructions(
                 }
 
                 // копируем элемент по номеру места
-                //                      [2]abcd
+                // [2]abcd
                 op.isDigitsOnly() -> {
                     action.replace(
                         startReplacedIndex,
@@ -201,7 +238,7 @@ fun calcInstructions(
                 }
 
                 // копируем ряд по номеру места
-                //                      [2..5]abcd
+                // [2..5]abcd
                 !op.startsWith("-") && !op.contains("->") && op.contains("..") -> {
                     val leftRight = op.split("..")
                     val from = leftRight[0].trim().toInt() - 1
@@ -216,7 +253,7 @@ fun calcInstructions(
                 }
 
                 // удаляем элемент по номеру места
-                //                      [-2]abcd
+                // [-2]abcd
                 op.startsWith("-") && op.isDigitsOnly('-') -> {
                     //                            / заменить оригинал
                     action.replace(
@@ -227,7 +264,8 @@ fun calcInstructions(
                 }
 
                 // добавляем элемент по номеру места (остальные сдвигаются)
-                //                      [x -> +2]abcd
+                // [x -> +2]abcd // axbcd
+                // todo: [x -> +2:, ]a, b, c, d // a, x, b, c, d
                 op.contains(" -> +") && !op.contains("..") -> {
                     val leftRight = op.split(" -> +")
                     val v = leftRight[0].trim()
@@ -237,8 +275,8 @@ fun calcInstructions(
                     )
                 }
 
-                // удаляем ряд по номеру места
-                //                      [-2..5]abcd
+                // удаляем ряд по номеру
+                // [-2..5]abcd
                 op.startsWith("-") && !op.contains("->") && op.contains("..") -> {
                     val leftRight = op.removePrefix("-").split("..")
                     val from = abs(leftRight[0].trim().toInt()) - 1
@@ -253,7 +291,7 @@ fun calcInstructions(
                 }
 
                 // заполняем ячейку элемента данными по номеру места
-                //                      [x -> 2]abcd
+                // [x -> 2]abcd
                 op.contains(" -> ") && !op.contains("..") -> {
                     val leftRight = op.split(" -> ", limit = 2)
                     if (leftRight.size == 2) {
@@ -269,7 +307,7 @@ fun calcInstructions(
                 }
 
                 // заполняем ряд данными
-                //                      [x -> 1..3]abcd
+                // [x -> 1..3]abcd
                 op.contains(" -> ") && op.contains("..") -> {
                     val leftRightSet = op.split(" -> ", limit = 2)
                     if (leftRightSet.size == 2) {
