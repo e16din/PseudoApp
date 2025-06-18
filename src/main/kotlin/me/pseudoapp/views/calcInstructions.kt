@@ -81,7 +81,7 @@ fun calcInstructions(
             if (!name.isEmpty()) {
                 index = action.indexOf(name)
 //                index = max(0, action.positionOf(" ", startIndex = index, fromEndToStart = true))
-                endIndex = action.indexOf(" ", index)
+                endIndex = action.indexOfAny(charArrayOf(' ', '['), index)
                 val b = elements.firstOrNull { it.name.value == name }?.result?.value
                 while (index < opIndex && index != -1 && endIndex != -1 && index != endIndex && endIndex - index == name.length) {
                     val replaced = action.substring(index, endIndex)
@@ -101,26 +101,59 @@ fun calcInstructions(
         // слева направо
         var startArrayOpIndex = action.indexOf("[")
         var endArrayOpIndex = action.indexOf("]")
+
+        val isLeftSide = startArrayOpIndex == 0
+
         while (startArrayOpIndex < opIndex && startArrayOpIndex != -1 && endArrayOpIndex != -1) {
             val startArrayIndex = endArrayOpIndex + 1
-            var endArrayIndex = action.positionOf(
-                { it == "[" },
-                startIndex = endArrayOpIndex
-            )
-            if (endArrayIndex == -1) {
-                endArrayIndex = action.positionOf(
+            var endArrayIndex = if (isLeftSide)
+                action.positionOf(
                     { it == "=" },
                     startIndex = endArrayOpIndex
                 ) - 1 // [?.]abc| =|> q
-            }
+            else
+                action.positionOf(
+                    { it == "[" },
+                    startIndex = endArrayOpIndex
+                )
+
+            val startReplacedIndex = if (isLeftSide) startArrayOpIndex else 0
+
             if (endArrayIndex == -1) {
                 endArrayIndex = action.length
             }
 
-            val op = action.substring(startArrayOpIndex + 1, endArrayOpIndex)
-            val array = action.split("]")[1].split(" =")[0] // [op]array
+// благодарность дается даром
+
+            val op = action.substring(
+                startArrayOpIndex + 1,
+                endArrayOpIndex
+            )
+            val array = (if (isLeftSide)
+                action.split("]")[1] // [op]array
+            else
+                action.split("[")[0]) // array[op]
+                .split(" =")[0]
+
+            println("[arrays] op: $op | array: $array")
 
             when {
+                // взять подстроку по номеру между разделителями
+                // [2:, ]AA, BB|, A, BAB, A // BB|
+                // [3:|]AA|BB|A,|BAB,|A // A,
+                op.contains(":") -> {
+                    val lr = op.split(":")
+                    val position = lr[0].toInt() - 1
+                    val delimiter = lr[1]
+
+                    val substrings = array.split(delimiter)
+
+                    action.replace(
+                        startReplacedIndex, endArrayIndex,
+                        if (position >= substrings.size || position < 0) "" else substrings[position]
+                    )
+                }
+
                 // сколько элементов до разделителя ?.
                 // [A?|.]AABB|ABABA // 2 элемента A
                 // [?.]AABB|ABABA // 10 элементов всего
@@ -130,7 +163,7 @@ fun calcInstructions(
                     val delimiter = lr[1].trimEnd('.')
                     if (query.isEmpty() && delimiter.isEmpty()) {
                         action.replace(
-                            startArrayOpIndex, endArrayIndex, array.length.toString()
+                            startReplacedIndex, endArrayIndex, array.length.toString()
                         )
                     } else {
                         var count = 0
@@ -143,7 +176,7 @@ fun calcInstructions(
 
                         println("action a: $action")
                         action.replace(
-                            startArrayOpIndex, endArrayIndex, count.toString()
+                            startReplacedIndex, endArrayIndex, count.toString()
                         )
                         println("action b: $action")
                     }
@@ -153,7 +186,7 @@ fun calcInstructions(
                 //                      [!]abcd
                 op == "!" -> {
                     action.replace(
-                        startArrayOpIndex, endArrayIndex, array.reversed()
+                        startReplacedIndex, endArrayIndex, array.reversed()
                     )
                 }
 
@@ -161,7 +194,7 @@ fun calcInstructions(
                 //                      [2]abcd
                 op.isDigitsOnly() -> {
                     action.replace(
-                        startArrayOpIndex,
+                        startReplacedIndex,
                         endArrayIndex,
                         "${array[op.toInt() - 1]}" // счет мест для заполнения начинается с 1-го
                     )
@@ -175,7 +208,7 @@ fun calcInstructions(
                     val to = leftRight[1].trim().toInt()
                     if (leftRight.size == 2) {
                         action.replace(
-                            startArrayOpIndex,
+                            startReplacedIndex,
                             endArrayIndex,
                             array.substring(from, to) // счет мест для заполнения начинается с 1-го
                         )
@@ -187,7 +220,7 @@ fun calcInstructions(
                 op.startsWith("-") && op.isDigitsOnly('-') -> {
                     //                            / заменить оригинал
                     action.replace(
-                        startArrayOpIndex, endArrayIndex, array.removeRange(
+                        startReplacedIndex, endArrayIndex, array.removeRange(
                             abs(op.toInt()) - 1, abs(op.toInt())
                         ) // счет мест для заполнения начинается с 1-го
                     )
@@ -200,7 +233,7 @@ fun calcInstructions(
                     val v = leftRight[0].trim()
                     val i = leftRight[1].trim().toInt() - 1 // счет начинается с 1-го
                     action.replace(
-                        startArrayOpIndex, endArrayIndex, StringBuilder(array).insert(i, v).toString()
+                        startReplacedIndex, endArrayIndex, StringBuilder(array).insert(i, v).toString()
                     )
                 }
 
@@ -212,7 +245,7 @@ fun calcInstructions(
                     val to = leftRight[1].trim().toInt()
                     if (leftRight.size == 2) {
                         action.replace(
-                            startArrayOpIndex,
+                            startReplacedIndex,
                             endArrayIndex,
                             array.removeRange(from, to) // счет мест для заполнения начинается с 1-го
                         )
@@ -230,7 +263,7 @@ fun calcInstructions(
                             v = v.removeSuffix("\"").removePrefix("\"")
                         }
                         action.replace(
-                            startArrayOpIndex, endArrayIndex, array.replaceRange(i, i + 1, v)
+                            startReplacedIndex, endArrayIndex, array.replaceRange(i, i + 1, v)
                         )
                     }
                 }
@@ -249,7 +282,7 @@ fun calcInstructions(
                             v = v.removeSuffix("\"").removePrefix("\"")
                         }
                         action.replace(
-                            startArrayOpIndex, endArrayIndex, array.replaceRange(from, to, v)
+                            startReplacedIndex, endArrayIndex, array.replaceRange(from, to, v)
                         )
                     }
                 }

@@ -73,78 +73,76 @@ fun MainScreen() {
         // Lifecycle
         CoroutineScope(Dispatchers.IO + SupervisorJob()).launch {
             while (calcState.value != CalcState.Done) {
+                if (selectedElement.elements.isNotEmpty()) {
 
 
-                if (selectedElement.elements.isEmpty()) {
-                    continue
-                }
+                    if (calcState.value != CalcState.Paused
+                        || isNextStepAllowed.value
+                    ) {
 
-                if (calcState.value != CalcState.Paused
-                    || isNextStepAllowed.value
-                ) {
-
-                    if (lifecycleElementPosition > selectedElement.elements.size - 1 || lifecycleElementPosition < startIndex) {
-                        lifecycleElementPosition = startIndex
-                    }
-                    println("i c: $lifecycleElementPosition")
-
-                    val e = selectedElement.elements[lifecycleElementPosition]
-
-                    fun findStartIndex(): Int {
-                        startIndex = selectedElement.elements.indexOf(startCycleElements.lastOrNull())
-                        if (startIndex == -1) {
-                            startIndex = 0
+                        if (lifecycleElementPosition > selectedElement.elements.size - 1 || lifecycleElementPosition < startIndex) {
+                            lifecycleElementPosition = startIndex
                         }
-                        return startIndex
-                    }
+                        println("i c: $lifecycleElementPosition")
 
-                    if (e.isAbstrAction) {
-                        delay(stepDelayMsValue.value)
+                        val e = selectedElement.elements[lifecycleElementPosition]
 
-                        println("calcState: $calcState")
-                        println("isNextStepAllowed: ${isNextStepAllowed.value}")
-                        println("contentElement: ${selectedElement.name.value}")
-
-                        withContext(Dispatchers.Default) {
-                            if (isNextStepAllowed.value) {
-                                calcState.value = CalcState.Paused
-                                isNextStepAllowed.value = false
+                        fun findStartIndex(): Int {
+                            startIndex = selectedElement.elements.indexOf(startCycleElements.lastOrNull())
+                            if (startIndex == -1) {
+                                startIndex = 0
                             }
+                            return startIndex
                         }
 
-                        try {
+                        if (e.isAbstrAction) {
+                            delay(stepDelayMsValue.value)
 
-                            startIndex = findStartIndex()
-                            println("startCycleElement: ${startCycleElements.lastOrNull()?.name?.value}")
-                            println("startIndex a: $startIndex")
+                            println("calcState: $calcState")
+                            println("isNextStepAllowed: ${isNextStepAllowed.value}")
+                            println("contentElement: ${selectedElement.name.value}")
 
-                            println("i a: $lifecycleElementPosition")
-
-                            if (lifecycleElementPosition >= startIndex) {
-                                withContext(Dispatchers.Default) {
-                                    val result =
-                                        calcInstructions(
-                                            e,
-                                            selectedElement.elements,
-                                            startCycleElements,
-                                            stepDelayMsValue
-                                        )
-                                    if (result == CalcState.Paused || result == CalcState.Done) {
-                                        calcState.value = result
-                                    }
+                            withContext(Dispatchers.Default) {
+                                if (isNextStepAllowed.value) {
+                                    calcState.value = CalcState.Paused
+                                    isNextStepAllowed.value = false
                                 }
                             }
 
-                        } catch (e: Exception) {
-                            e.printStackTrace()
+                            try {
+
+                                startIndex = findStartIndex()
+                                println("startCycleElement: ${startCycleElements.lastOrNull()?.name?.value}")
+                                println("startIndex a: $startIndex")
+
+                                println("i a: $lifecycleElementPosition")
+
+                                if (lifecycleElementPosition >= startIndex) {
+                                    withContext(Dispatchers.Default) {
+                                        val result =
+                                            calcInstructions(
+                                                e,
+                                                selectedElement.elements,
+                                                startCycleElements,
+                                                stepDelayMsValue
+                                            )
+                                        if (result == CalcState.Paused || result == CalcState.Done) {
+                                            calcState.value = result
+                                        }
+                                    }
+                                }
+
+                            } catch (e: Exception) {
+                                e.printStackTrace()
+                            }
                         }
+
+                        lifecycleElementPosition += 1
+
+                        startIndex = findStartIndex()
+                        println("startIndex b: $startIndex")
+                        println("i b: $lifecycleElementPosition")
                     }
-
-                    lifecycleElementPosition += 1
-
-                    startIndex = findStartIndex()
-                    println("startIndex b: $startIndex")
-                    println("i b: $lifecycleElementPosition")
                 }
             }
         }
