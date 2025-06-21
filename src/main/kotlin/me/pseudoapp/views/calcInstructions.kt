@@ -57,7 +57,7 @@ fun calcInstructions(
     }
 
     fun doInsertAndCalcValues(a: CharSequence): CharSequence {
-        var action = StringBuilder(a)
+        val action = StringBuilder(a)
         val opIndex = action.indexOf(" =")
 
         //  Step: подставляем значения внутренних элементов
@@ -137,11 +137,141 @@ fun calcInstructions(
 
             println("[arrays] op: $op | array: $array")
 
+
+            // [temp -> +3] // вставить на 3 место, остальные сдвинуть
+            // [temp <- 3] // переместить в temp
+
+
+            // [temp .->. ab] // заменить все ab содержимым temp . до .
+            // [temp 2->10 ab] // заменить  ab содержимым temp от 2й до 10й ячейки
+            // [temp 0->3] // заполнить все до ячейки 3 содержимым temp
+
+            // [temp <- 3:, ] // переместить в temp
+            // [temp -> 3:, ] // заполнить ячейку 3 содержимым temp
+            // [temp -> +3:, ] // вставить на 3 место, остальные сдвинуть
+
+
+            // ===
+            // [3] // копировать ячейку 3
+            // [3..4]
+
+            // [2:,] // копировать ячейку 2 с разделителем
+
+            // [-3] // копировать все за исключением ячейки 3
+            // [-3..4]
+            // [-2:,] // копировать все за исключением ячейки 2 с разделителем
+
+            // ===
+            // [a?;] // кол-во до разделителя или 0
+            // [a^|] // индекс до разделителя или 0
+
+
             when {
+                // заполнить ячейку 3 содержимым x
+                // Case: [x ->3]abc
+                // Case: [x 1->3]abc
+
+
+                // [x -> ?a :, ]a, a, c => Result
+                // [x -> 1..2 ?a :|]a|b|c => Result
+
+                // [x -> {..} ? , ]{abc}de => Result
+
+                op.contains(" -> ") -> {
+                    val valueAndRange = op.split(" -> ", limit = 2)
+                    if (valueAndRange.size > 1) {
+                        // [{чем заменяем} -> ..{где заменяем} ?{что заменяем} :{разделитель} ]abc => Result
+                        var value = valueAndRange[0].trim()
+                        if (value.startsWith("\"") && value.endsWith("\"")) { // without trim()
+                            value = value.removeSuffix("\"").removePrefix("\"")
+                        }
+                        val whereAndWhatAndDelimiter = valueAndRange[1].trim().split(" ", limit = 3)
+                        val where = whereAndWhatAndDelimiter.firstOrNull { it.contains("..") }
+                            ?: whereAndWhatAndDelimiter.firstOrNull { it.isDigitsOnly() }
+                        val what = whereAndWhatAndDelimiter.firstOrNull { it.startsWith("?") }?.drop(1) ?: ""
+                        val separator = whereAndWhatAndDelimiter.firstOrNull { it.startsWith(":") }?.drop(1) ?: ""
+
+                        println("whereAndWhatAndDelimiter: $whereAndWhatAndDelimiter")
+                        val rangeStartAndEnd = where?.split("..") ?: listOf("")
+                        println("rangeStartAndEnd: $rangeStartAndEnd")
+
+//                        if(isDigit) {
+                            var start = if (rangeStartAndEnd[0].isEmpty())
+                                0
+                            else
+                                rangeStartAndEnd[0].trim().toInt() - 1   // счет мест начинается с 1-го
+                            if (start < 0) {
+                                start = 0
+                            }
+
+
+                            var end = when {
+                                rangeStartAndEnd[0].isEmpty() -> {
+                                    array.length
+                                }
+
+                                rangeStartAndEnd.size == 1 -> {
+                                    start + 1
+                                }
+
+                                else -> {
+                                    rangeStartAndEnd[1].trim().toIntOrNull()
+                                        ?: array.length
+                                }
+                            }
+                            if (end > array.length) {
+                                end = array.length
+                            }
+//                        } else {
+//                            isLetter
+//                        }
+                        println("start: $start, end: $end")
+
+                        val source = array.split(separator).toMutableList()
+                        val result = if (what.isEmpty()) {
+                            array.replaceRange(
+                                start + if (separator.isEmpty() || start == 0) 0 else (start) * separator.length,
+                                end + if (separator.isEmpty()) 0 else (end - 1) * separator.length,
+                                value
+                            )
+                        } else {
+                            for (i in start until if (end > source.size) source.size else end) {
+                                source[i] = source[i].replace(what, value)
+                            }
+                            source.joinToString(separator)
+                        }
+
+                        action.replace(startReplacedIndex, endArrayIndex, result)
+                    }
+                }
+
                 // переместить подстроку по номеру между разделителями
                 // [temp <- 3:|]1|2|3,|abc|5 // temp == 3, | source == 1|2|abc|5
                 // [temp <- 2]1|2|3 // temp == |, | source == 12|3
                 // [temp <- 2..4]1|2|3 // temp == |2|, | source == 13
+                op.contains("<-") -> {
+
+                    val lr = op.split(":")
+                    var position = abs(lr[0].toInt())
+                    val delimiter = lr[1]
+                    position -= if (delimiter.isEmpty()) 0 else 1
+
+                    val substrings = array.split(delimiter)
+                    val reduced = substrings.reduceIndexed { i, a, b ->
+                        a + if (i == position) "" else delimiter + b
+                    }
+
+                    println("reduced: $reduced")
+
+                    action.replace(
+                        startReplacedIndex, endArrayIndex,
+                        if (position >= substrings.size || position < 0)
+                            ""
+                        else {
+                            reduced
+                        }
+                    )
+                }
 
                 // удалить
 
@@ -286,41 +416,6 @@ fun calcInstructions(
                             startReplacedIndex,
                             endArrayIndex,
                             array.removeRange(from, to) // счет мест для заполнения начинается с 1-го
-                        )
-                    }
-                }
-
-                // заполняем ячейку элемента данными по номеру места
-                // [x -> 2]abcd
-                op.contains(" -> ") && !op.contains("..") -> {
-                    val leftRight = op.split(" -> ", limit = 2)
-                    if (leftRight.size == 2) {
-                        var v = leftRight[0].trim()
-                        val i = leftRight[1].trim().toInt() - 1 // счет мест начинается с 1-го
-                        if (v.startsWith("\"") && v.endsWith("\"")) {
-                            v = v.removeSuffix("\"").removePrefix("\"")
-                        }
-                        action.replace(
-                            startReplacedIndex, endArrayIndex, array.replaceRange(i, i + 1, v)
-                        )
-                    }
-                }
-
-                // заполняем ряд данными
-                // [x -> 1..3]abcd
-                op.contains(" -> ") && op.contains("..") -> {
-                    val leftRightSet = op.split(" -> ", limit = 2)
-                    if (leftRightSet.size == 2) {
-                        val leftRightRange = op.split("..")
-                        val from = leftRightRange[0].trim().toInt() - 1
-                        val to = leftRightRange[1].trim().split(" ").first().toInt()
-
-                        var v = leftRightSet[0].trim()
-                        if (v.startsWith("\"") && v.endsWith("\"")) {
-                            v = v.removeSuffix("\"").removePrefix("\"")
-                        }
-                        action.replace(
-                            startReplacedIndex, endArrayIndex, array.replaceRange(from, to, v)
                         )
                     }
                 }

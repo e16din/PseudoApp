@@ -14,12 +14,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.input.key.*
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.*
 import me.pseudoapp.Element
 import me.pseudoapp.other.pickImage
 
@@ -73,18 +68,15 @@ fun MainScreen() {
         // Lifecycle
         CoroutineScope(Dispatchers.IO + SupervisorJob()).launch {
             while (calcState.value != CalcState.Done) {
-                if (selectedElement.elements.isNotEmpty()) {
+                if (calcState.value != CalcState.Paused
+                    || isNextStepAllowed.value
+                ) {
 
+                    if (lifecycleElementPosition > selectedElement.elements.size - 1 || lifecycleElementPosition < startIndex) {
+                        lifecycleElementPosition = startIndex
+                    }
 
-                    if (calcState.value != CalcState.Paused
-                        || isNextStepAllowed.value
-                    ) {
-
-                        if (lifecycleElementPosition > selectedElement.elements.size - 1 || lifecycleElementPosition < startIndex) {
-                            lifecycleElementPosition = startIndex
-                        }
-                        println("i c: $lifecycleElementPosition")
-
+                    if (selectedElement.elements.size > 0) {
                         val e = selectedElement.elements[lifecycleElementPosition]
 
                         fun findStartIndex(): Int {
@@ -115,8 +107,6 @@ fun MainScreen() {
                                 println("startCycleElement: ${startCycleElements.lastOrNull()?.name?.value}")
                                 println("startIndex a: $startIndex")
 
-                                println("i a: $lifecycleElementPosition")
-
                                 if (lifecycleElementPosition >= startIndex) {
                                     withContext(Dispatchers.Default) {
                                         val result =
@@ -141,7 +131,6 @@ fun MainScreen() {
 
                         startIndex = findStartIndex()
                         println("startIndex b: $startIndex")
-                        println("i b: $lifecycleElementPosition")
                     }
                 }
             }
