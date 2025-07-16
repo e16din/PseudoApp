@@ -4,12 +4,10 @@ import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import com.github.murzagalin.evaluator.Evaluator
 import me.pseudoapp.Element
-import me.pseudoapp.other.calculate
 import me.pseudoapp.other.firstContained
 import me.pseudoapp.other.isDigitsOnly
 import me.pseudoapp.other.positionOf
 import me.pseudoapp.other.split
-import kotlin.text.replace
 
 
 val mathEvaluator = Evaluator()
@@ -138,7 +136,56 @@ fun calcInstructions(
 
             println("[arrays] op: $op | array: $array")
 
-            val resultString = calculate(array, op)
+            val resultString = when {
+                // копируем элемент по номеру места
+                // [2]abcd
+                op.isDigitsOnly() -> {
+                    println("calcTrueLangInstructions: ${op}")
+
+                    // return:
+                    array[op.toInt() - 1].toString() // счет мест для заполнения начинается с 1-го
+                }
+
+                // копируем ряд по номеру места
+                // [2..5]123456
+                !op.startsWith("-") && !op.contains("->") && op.contains("..") -> {
+                    println("calcTrueLangInstructions: ${op}")
+
+                    val leftRight = op.split("..")
+
+                    var from = if (leftRight[0].trim().isEmpty()) {
+                        0
+                    } else {
+                        leftRight[0].trim().toInt() - 1
+                    }
+
+                    if (from < 0) {
+                        from = 0
+                    }
+                    var to = if (leftRight[1].trim().isEmpty()) {
+                        array.length - 1
+                    } else {
+                        leftRight[1].trim().toInt() - 1
+                    }
+                    if (to > array.length - 1) {
+                        to = array.length - 1
+                    }
+                    to += 1
+
+                    // return:
+                    array.substring(from, to) // счет мест для заполнения начинается с 1-го
+                }
+
+                else -> {
+                    println("calcMrGreenLangInstructions: ${op}")
+
+                    // return:
+                    calcMrGreenLangInstructions(array, op)
+                }
+            }
+
+            println("resultString a: $resultString")
+            println("action range: ${action.substring(startReplacedIndex, endArrayIndex)}")
             action.replace(startReplacedIndex, endArrayIndex, resultString)
 
             startArrayOpIndex = action.indexOf("[", endArrayOpIndex + 1)
@@ -458,6 +505,7 @@ fun calcInstructions(
         calcResult = doUpdateOps(singleAction)
     }
 
+    println(">>>>>>>>>>>>calcResult: $calcResult")
     return calcResult
 }
 

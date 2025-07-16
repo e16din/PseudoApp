@@ -8,9 +8,6 @@ import androidx.compose.foundation.shape.CutCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.*
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -506,6 +503,15 @@ fun ElementsView(
             Modifier.align(Alignment.BottomEnd),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            if (calcState.value == CalcState.Paused) {
+                Button(onClick = {
+                    isNextStepAllowed.value = true
+
+                }, Modifier.padding(horizontal = 21.dp)) {
+                    Text("Next Step >")
+                }
+            }
+
             Text("Step Delay: ")
 
             BasicTextField(
@@ -521,33 +527,22 @@ fun ElementsView(
                     .padding(6.dp)
             )
 
-            if (calcState.value == CalcState.Paused) {
-                Button(onClick = {
-                    isNextStepAllowed.value = true
-
-                }, Modifier.padding(horizontal = 21.dp)) {
-                    Text("Next Step >")
-                }
-            }
-
-            IconToggleButton(
-                calcState.value == CalcState.Paused || calcState.value == CalcState.Done,
-                onCheckedChange = {
-                    calcState.value = if (it) CalcState.Paused else CalcState.InProgress
+            OutlinedButton(
+                onClick = {
+                    calcState.value = if (calcState.value == CalcState.InProgress)
+                        CalcState.Paused
+                    else
+                        CalcState.InProgress
                 },
                 content = {
-                    if (calcState.value == CalcState.Paused || calcState.value == CalcState.Done)
-                        Icon(
-                            Icons.Default.PlayArrow,
-                            contentDescription = "play"
-                        )
+                    val playPauseText = if (calcState.value == CalcState.Paused || calcState.value == CalcState.Done)
+                        "Resume"
                     else
-                        Icon(
-                            Icons.Default.Lock,
-                            "pause",
-                            tint = Color.LightGray
-                        )
-                }
+                        "Pause"
+                    Text(playPauseText)
+                },
+                modifier = Modifier.width(120.dp),
+
             )
         }
     }
