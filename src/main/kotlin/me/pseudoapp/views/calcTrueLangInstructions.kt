@@ -106,21 +106,21 @@ fun calcInstructions(
         while (startArrayOpIndex < opIndex && startArrayOpIndex != -1 && endArrayOpIndex != -1) {
             val startArrayIndex = endArrayOpIndex + 1
             var endArrayIndex = if (isLeftSide)
-                action.positionOf(
-                    { it == "=" },
+                action.indexOf(
+                    " =",
                     startIndex = endArrayOpIndex
-                ) - 1 // [?.]abc| =|> q
+                ) // [?.]abc| =|> q
             else
-                action.positionOf(
-                    { it == "[" },
-                    startIndex = endArrayOpIndex
-                )
-
-            val startReplacedIndex = if (isLeftSide) startArrayOpIndex else 0
+                action.lastIndexOf("[")
 
             if (endArrayIndex == -1) {
                 endArrayIndex = action.length
             }
+
+            val startReplacedIndex = if (isLeftSide) startArrayOpIndex else 0
+            val endReplacedIndex = if (isLeftSide) endArrayIndex else action.lastIndexOf("]") + 1
+
+
 
 // благодарность дается даром
 
@@ -143,7 +143,10 @@ fun calcInstructions(
                     println("calcTrueLangInstructions: ${op}")
 
                     // return:
-                    array[op.toInt() - 1].toString() // счет мест для заполнения начинается с 1-го
+                    if (isLeftSide)
+                        array[op.toInt() - 1].toString() // счет мест для заполнения начинается с 1-го
+                    else
+                        array[(array.length - 1) - (op.toInt() - 1)].toString()
                 }
 
                 // копируем ряд по номеру места
@@ -173,7 +176,12 @@ fun calcInstructions(
                     to += 1
 
                     // return:
-                    array.substring(from, to) // счет мест для заполнения начинается с 1-го
+                    if(isLeftSide){
+                        array.substring(from, to) // счет мест для заполнения начинается с 1-го
+                    }else {
+                        array.substring((array.length - 1) - (to-1), (array.length - 1) - (from-1))
+                    }
+
                 }
 
                 else -> {
@@ -185,8 +193,9 @@ fun calcInstructions(
             }
 
             println("resultString a: $resultString")
-            println("action range: ${action.substring(startReplacedIndex, endArrayIndex)}")
-            action.replace(startReplacedIndex, endArrayIndex, resultString)
+            println("action range: ${action.substring(startReplacedIndex, endReplacedIndex)}")
+            action.replace(startReplacedIndex, endReplacedIndex, resultString)
+            println("action after string op: ${action}")
 
             startArrayOpIndex = action.indexOf("[", endArrayOpIndex + 1)
             endArrayOpIndex = action.indexOf("]", endArrayOpIndex + 1)
